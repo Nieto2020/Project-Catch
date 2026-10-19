@@ -22,7 +22,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-EXCEL = ROOT / "BASE HISTORICA.xlsx"
+EXCEL = ROOT / "data" / "raw" / "BASE HISTORICA.xlsx"
 OUT_DIR = ROOT / "data" / "processed"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
