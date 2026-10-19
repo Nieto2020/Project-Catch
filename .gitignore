@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+
+# Entorno / secretos
+.env
+.env.local
+
+# Archivos temporales del EDA
+data/_*.txt
+data/_*.json
