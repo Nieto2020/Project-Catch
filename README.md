@@ -24,7 +24,16 @@ cd ..
 > Si nunca has generado los datos procesados (ya vienen commiteados en `data/processed/`),
 > ejecuta `.venv\Scripts\python.exe notebooks\eda.py` para regenerarlos.
 
-## Correr la demo (dos terminales)
+## Correr la demo
+
+**Opción rápida (un solo comando):** levanta backend y frontend en dos ventanas
+y abre el navegador.
+
+```powershell
+.\demo.ps1
+```
+
+**Opción manual (dos terminales):**
 
 **Terminal 1 — Backend (FastAPI, puerto 8000):**
 
