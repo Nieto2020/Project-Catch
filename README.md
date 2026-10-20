@@ -66,10 +66,24 @@ Abre **http://localhost:3000** en el navegador.
 ## Asistente IA (opcional)
 
 El chat funciona **sin configuración** en "modo local" (respuestas cuantitativas
-predefinidas). Para activar el agente LangChain + OpenAI completo:
+predefinidas). Para activar el agente LangChain + LLM completo:
 
 1. Copia `backend\.env.example` a `backend\.env`.
 2. Añade tu clave: `OPENAI_API_KEY=sk-...`
+
+**OpenAI:**
+
+```
+OPENAI_MODEL=gpt-4o-mini
+```
+
+**DeepSeek** (compatible con OpenAI; el endpoint se detecta automáticamente si el modelo contiene "deepseek"):
+
+```
+OPENAI_MODEL=deepseek-chat
+```
+
+Reinicia el backend tras editar `.env`.
 
 ## Estructura
 

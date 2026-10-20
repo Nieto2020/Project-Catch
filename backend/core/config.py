@@ -22,6 +22,10 @@ MODEL_META_PATH = ROOT / "models" / "modelo_rotacion_meta.json"
 # --- LLM (asistente IA) ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
+
+# DeepSeek es compatible con la API de OpenAI (solo cambia el endpoint).
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 # --- CORS: el frontend Next.js corre en localhost:3000 ---
 CORS_ORIGINS = [

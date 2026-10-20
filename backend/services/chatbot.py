@@ -13,7 +13,10 @@ from .utils import jsonable
 
 def _agent_df(state) -> pd.DataFrame:
     """DataFrame reducido y legible que consume el agente."""
-    df = add_scores(state.kpis).copy()
+    df = state.kpis.copy()
+    # Solo se añade el score; el resto de columnas conserva valores reales (con
+    # nulos) para que los promedios coincidan con el dashboard.
+    df["score_competitividad"] = add_scores(state.kpis)["score_competitividad"]
     cols = [
         "periodo", "empresa", "tiene_sindicato",
         "emp_operativos", "emp_admin", "emp_otros", "total_headcount",
@@ -61,11 +64,18 @@ def _llm_query(state, question: str) -> str:
         from langchain_classic.agents import create_pandas_dataframe_agent
 
     df = _agent_df(state)
-    llm = ChatOpenAI(
-        model=config.OPENAI_MODEL,
-        temperature=0,
-        api_key=config.OPENAI_API_KEY,
-    )
+    llm_kwargs = {
+        "model": config.OPENAI_MODEL,
+        "temperature": 0,
+        "api_key": config.OPENAI_API_KEY,
+    }
+    base_url = config.OPENAI_BASE_URL
+    if not base_url and "deepseek" in config.OPENAI_MODEL.lower():
+        base_url = config.DEEPSEEK_BASE_URL
+    if base_url:
+        llm_kwargs["base_url"] = base_url
+
+    llm = ChatOpenAI(**llm_kwargs)
 
     agent_kwargs = dict(
         llm=llm,
@@ -74,6 +84,8 @@ def _llm_query(state, question: str) -> str:
         allow_dangerous_code=True,
         prefix=prompts.SYSTEM_PROMPT,
         number_of_head_rows=5,
+        include_df_in_prompt=False,
+        agent_executor_kwargs={"handle_parsing_errors": True},
     )
     try:
         agent = create_pandas_dataframe_agent(agent_type="tool-calling", **agent_kwargs)
