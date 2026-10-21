@@ -1,71 +1,72 @@
 import { create } from "zustand";
 import {
+  generateVideo,
   getBarometro,
-  getDashboard,
   getEmpresas,
+  getKpis,
+  getVideoInfo,
   postChat,
-  postWhatif,
-  type WhatIfPayload,
 } from "@/services/api";
 import type {
   BarometroResumen,
   ChatMessage,
-  DashboardData,
   EmpresaScore,
-  WhatIfResult,
+  Kpis,
+  VideoInfo,
+  VideoResult,
 } from "@/services/types";
 
 interface AppState {
-  dashboard: DashboardData | null;
-  dashboardLoading: boolean;
-  dashboardError: string | null;
-
+  kpis: Kpis | null;
   barometro: BarometroResumen | null;
+  loading: boolean;
+  error: string | null;
+
   empresas: EmpresaScore[];
   empresasLoading: boolean;
 
   chat: ChatMessage[];
   chatLoading: boolean;
 
-  whatif: WhatIfResult | null;
-  whatifLoading: boolean;
-  whatifError: string | null;
+  video: VideoResult | null;
+  videoInfo: VideoInfo | null;
+  videoLoading: boolean;
+  videoError: string | null;
 
-  loadDashboard: () => Promise<void>;
+  loadHome: () => Promise<void>;
   loadEmpresas: (periodo?: string) => Promise<void>;
   sendChat: (text: string) => Promise<void>;
-  runWhatif: (payload: WhatIfPayload) => Promise<void>;
   resetChat: () => void;
+  loadVideoInfo: () => Promise<void>;
+  generateVideo: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  dashboard: null,
-  dashboardLoading: false,
-  dashboardError: null,
-
+  kpis: null,
   barometro: null,
+  loading: false,
+  error: null,
+
   empresas: [],
   empresasLoading: false,
 
   chat: [],
   chatLoading: false,
 
-  whatif: null,
-  whatifLoading: false,
-  whatifError: null,
+  video: null,
+  videoInfo: null,
+  videoLoading: false,
+  videoError: null,
 
-  loadDashboard: async () => {
-    set({ dashboardLoading: true, dashboardError: null });
+  loadHome: async () => {
+    set({ loading: true, error: null });
     try {
-      const [dashboard, barometro] = await Promise.all([
-        getDashboard(),
-        getBarometro(),
-      ]);
-      set({ dashboard, barometro, dashboardLoading: false });
+      const [kpis, barometro] = await Promise.all([getKpis(), getBarometro()]);
+      set({ kpis, barometro, loading: false });
     } catch (e) {
       set({
-        dashboardError: e instanceof Error ? e.message : "Error al cargar el dashboard",
-        dashboardLoading: false,
+        error: e instanceof Error ? e.message : "Error al cargar el barómetro",
+        loading: false,
       });
     }
   },
@@ -100,18 +101,28 @@ export const useAppStore = create<AppState>((set) => ({
     }
   },
 
-  runWhatif: async (payload) => {
-    set({ whatifLoading: true, whatifError: null });
+  resetChat: () => set({ chat: [] }),
+
+  loadVideoInfo: async () => {
     try {
-      const whatif = await postWhatif(payload);
-      set({ whatif, whatifLoading: false });
-    } catch (e) {
-      set({
-        whatifError: e instanceof Error ? e.message : "Error en la simulación",
-        whatifLoading: false,
-      });
+      const videoInfo = await getVideoInfo();
+      set({ videoInfo });
+    } catch {
+      // la API no está disponible; se ignora
     }
   },
 
-  resetChat: () => set({ chat: [] }),
+  generateVideo: async () => {
+    set({ videoLoading: true, videoError: null });
+    try {
+      const video = await generateVideo();
+      const videoInfo = await getVideoInfo();
+      set({ video, videoInfo, videoLoading: false });
+    } catch (e) {
+      set({
+        videoError: e instanceof Error ? e.message : "Error al generar el video",
+        videoLoading: false,
+      });
+    }
+  },
 }));

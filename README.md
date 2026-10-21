@@ -3,10 +3,18 @@
 Prototipo web de analítica de Recursos Humanos impulsada por IA, para el pitch del Datatón.
 **No va a producción**: todo corre localmente, sin autenticación ni nube.
 
+El proyecto se centra en **tres módulos**:
+
+1. **Chatbot** — asistente que responde preguntas cuantitativas sobre los datos (LangChain + LLM).
+2. **Video descriptivo** — video de 1-3 minutos con voz natural (sin avatar) que narra los
+   hallazgos del análisis y muestra gráficas.
+3. **Barómetro global** — índice de competitividad 0-100 con métricas establecidas.
+
 ## Requisitos
 
 - Python 3.12+ (probado con 3.14)
 - Node.js 20+ (probado con 20.18.1) y npm
+- Internet (para la voz del video vía edge-tts de Microsoft y para el LLM)
 
 ## Instalación (una sola vez)
 
@@ -57,13 +65,11 @@ Abre **http://localhost:3000** en el navegador.
 
 | Vista | Ruta | Descripción |
 |---|---|---|
-| Dashboard | `/` | KPIs, tendencias y distribuciones descriptivas/prescriptivas |
-| Simulador What-If | `/whatif` | Proyecta el impacto en retención al cambiar variables |
-| Barómetro | `/barometro` | Índice de competitividad 0-100 por empresa |
+| Barómetro Global | `/` | Índice global 0-100, desglose por dimensión, tendencia y ranking |
 | Asistente IA | `/chat` | Consultas en lenguaje natural sobre los datos |
-| Capa Comercial | `/comercial` | Niveles de suscripción (Básico, Intermedio, Premium) |
+| Video Descriptivo | `/video` | Genera y reproduce el video narrado con hallazgos y gráficas |
 
-## Asistente IA (opcional)
+## Asistente IA
 
 El chat funciona **sin configuración** en "modo local" (respuestas cuantitativas
 predefinidas). Para activar el agente LangChain + LLM completo:
@@ -85,17 +91,41 @@ OPENAI_MODEL=deepseek-chat
 
 Reinicia el backend tras editar `.env`.
 
+## Video descriptivo
+
+- Se genera bajo demanda desde la vista `/video` (botón "Generar video").
+- Flujo: hallazgos → gráficas (matplotlib) → narración (edge-tts, voz natural de
+  Microsoft) → ensamblado MP4 con ffmpeg (incluido vía `imageio-ffmpeg`).
+- Voz configurable en `backend\.env` con `SCORE_VOICE`:
+  - `es-MX-JorgeNeural` (hombre, por defecto)
+  - `es-MX-DaliaNeural` (mujer)
+- El MP4 se guarda en `data/processed/video/score_descriptivo.mp4` (no se commitea)
+  y puede descargarse desde la vista.
+
+## Barómetro global
+
+Índice 0-100 construido con métricas establecidas y pesos:
+
+| Dimensión | Peso | Meta de referencia |
+|---|---|---|
+| Salario | 30% | 500 MXN/día |
+| Retención | 30% | ≤ 15% de rotación bimestral |
+| Ausentismo | 15% | ≤ 150 faltas / 100 empleados |
+| Capacitación | 15% | ≥ 4 horas / empleado |
+| Equilibrio de género | 10% | 50% mujeres |
+
+Además muestra la tendencia del índice por bimestre y el ranking de empresas.
+
 ## Estructura
 
 ```
-data/            raw (Excel) y processed (parquets, codebook)
-notebooks/       eda.py, train_model.py
-models/          modelo_rotacion.pkl + metadatos
-backend/         FastAPI (main.py, api/, core/, services/, templates/)
+data/            raw (Excel) y processed (parquets, codebook, video/)
+notebooks/       eda.py (limpieza y perfilado)
+backend/         FastAPI (main.py, api/, core/, services/)
 frontend/        Next.js + Tailwind + Tremor (src/pages, components, services, store)
 ```
 
 ## Notas
 
 - Los datos son una encuesta bimestral de RH a nivel **empresa** (40 empresas × 7 bimestres).
-- El modelo de rotación es un RandomForest (R² CV ≈ 0.43) entrenado en `notebooks/train_model.py`.
+- El video es el resultado del análisis descriptivo (KPIs, tendencias y barómetro).

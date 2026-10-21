@@ -20,3 +20,6 @@ dist/
 # Archivos temporales del EDA
 data/_*.txt
 data/_*.json
+
+# Video generado bajo demanda
+data/processed/video/

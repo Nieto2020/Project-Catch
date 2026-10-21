@@ -12,12 +12,14 @@ ROOT = Path(__file__).resolve().parents[2]
 # Carga variables de entorno opcionales (backend/.env).
 load_dotenv(ROOT / "backend" / ".env")
 
-# --- Rutas de datos y modelo ---
+# --- Rutas de datos ---
 DATA_PROCESSED = ROOT / "data" / "processed" / "kpis_empresas.parquet"
 DATA_COMPLETE = ROOT / "data" / "processed" / "encuestas_completo.parquet"
 CODEBOOK_PATH = ROOT / "data" / "processed" / "diccionario_datos.csv"
-MODEL_PATH = ROOT / "models" / "modelo_rotacion.pkl"
-MODEL_META_PATH = ROOT / "models" / "modelo_rotacion_meta.json"
+
+# --- Video descriptivo ---
+VIDEO_DIR = ROOT / "data" / "processed" / "video"
+VIDEO_PATH = VIDEO_DIR / "score_descriptivo.mp4"
 
 # --- LLM (asistente IA) ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -27,6 +29,9 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
 # DeepSeek es compatible con la API de OpenAI (solo cambia el endpoint).
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
+# --- Voz del video (edge-tts, voz natural de Microsoft) ---
+SCORE_VOICE = os.getenv("SCORE_VOICE", "es-MX-JorgeNeural")
+
 # --- CORS: el frontend Next.js corre en localhost:3000 ---
 CORS_ORIGINS = [
     "http://localhost:3000",
@@ -34,4 +39,4 @@ CORS_ORIGINS = [
 ]
 
 APP_NAME = "SCORE — Smart Catch Optimization & Retention Ecosystem"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"

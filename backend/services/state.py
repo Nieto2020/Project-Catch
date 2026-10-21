@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Estado global de la aplicación: datos y modelo cargados en RAM."""
+"""Estado global de la aplicación: datos cargados en RAM."""
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from typing import Any
 
-import joblib
 import pandas as pd
 
 from ..core import config
@@ -17,12 +14,10 @@ class AppState:
     kpis: pd.DataFrame          # dataset curado (280 x 68) + columnas derivadas
     complete: pd.DataFrame      # dataset completo (280 x 1169)
     codebook: pd.DataFrame      # diccionario de datos
-    model: Any                  # Pipeline sklearn (rotación)
-    model_meta: dict            # metadatos del modelo (features, métricas)
 
 
 def load_state() -> AppState:
-    """Carga datasets, codebook y modelo en memoria."""
+    """Carga datasets y codebook en memoria."""
     kpis = pd.read_parquet(config.DATA_PROCESSED)
     complete = pd.read_parquet(config.DATA_COMPLETE)
     codebook = pd.read_csv(config.CODEBOOK_PATH)
@@ -36,13 +31,4 @@ def load_state() -> AppState:
         / kpis["total_headcount"]
     )
 
-    model = joblib.load(config.MODEL_PATH)
-    model_meta = json.loads(config.MODEL_META_PATH.read_text(encoding="utf-8"))
-
-    return AppState(
-        kpis=kpis,
-        complete=complete,
-        codebook=codebook,
-        model=model,
-        model_meta=model_meta,
-    )
+    return AppState(kpis=kpis, complete=complete, codebook=codebook)

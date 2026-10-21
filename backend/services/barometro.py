@@ -14,6 +14,64 @@ WEIGHTS = {
     "sub_equilibrio": 0.10,
 }
 
+# Metas de referencia (benchmarks simulados para el pitch). Cada dimensión se
+# convierte a 0-100 comparando la métrica de la cohorte contra su meta.
+GLOBAL_BENCHMARKS = {
+    "salario":       {"peso": 0.30, "meta": 500.0, "unidad": "MXN/día",  "mejor": "alto"},
+    "retencion":     {"peso": 0.30, "meta": 15.0,  "unidad": "% bimestral", "mejor": "bajo"},
+    "ausentismo":    {"peso": 0.15, "meta": 150.0, "unidad": "faltas/100", "mejor": "bajo"},
+    "capacitacion":  {"peso": 0.15, "meta": 4.0,   "unidad": "horas/empleado", "mejor": "alto"},
+    "equilibrio":    {"peso": 0.10, "meta": 50.0,  "unidad": "% mujeres", "mejor": "centro"},
+}
+
+
+def _score_vs_meta(valor: float, meta: float, mejor: str) -> float:
+    """Convierte una métrica de cohorte a un score 0-100 frente a su meta."""
+    if pd.isna(valor):
+        return 50.0
+    if mejor == "bajo":
+        return float(100 - min(100.0, valor / meta * 100))
+    if mejor == "centro":
+        return float(max(0.0, 100 - abs(valor - meta) * 2))
+    return float(min(100.0, valor / meta * 100))
+
+
+def global_index(df: pd.DataFrame) -> dict:
+    """Índice global 0-100 de la cohorte a partir de las métricas establecidas."""
+    salario = pd.to_numeric(df["salario_medio"], errors="coerce").median()
+    retencion = pd.to_numeric(df["tasa_bajas_bimestral_pct"], errors="coerce").mean()
+    ausentismo = pd.to_numeric(df["faltas_por_100"], errors="coerce").median()
+    capacitacion = pd.to_numeric(df["cap_por_empleado"], errors="coerce").median()
+    equilibrio = pd.to_numeric(df["pct_mujeres"], errors="coerce").median()
+
+    valores = {
+        "salario": salario,
+        "retencion": retencion,
+        "ausentismo": ausentismo,
+        "capacitacion": capacitacion,
+        "equilibrio": equilibrio,
+    }
+
+    dimensiones = []
+    score = 0.0
+    for key, cfg in GLOBAL_BENCHMARKS.items():
+        s = _score_vs_meta(valores[key], cfg["meta"], cfg["mejor"])
+        score += s * cfg["peso"]
+        dimensiones.append({
+            "clave": key,
+            "peso": cfg["peso"],
+            "meta": cfg["meta"],
+            "unidad": cfg["unidad"],
+            "valor_actual": _f(valores[key], 2),
+            "score": round(s, 1),
+        })
+
+    return {
+        "score": round(score, 1),
+        "dimensiones": dimensiones,
+    }
+
+
 
 def add_scores(df: pd.DataFrame) -> pd.DataFrame:
     """Añade `score_competitividad` y sub-indicadores al DataFrame."""
@@ -79,6 +137,7 @@ def summary(df: pd.DataFrame) -> dict:
     ]
 
     return jsonable({
+        "global": global_index(df),
         "distribucion": {
             "min": _f(score.min(), 1),
             "promedio": _f(score.mean(), 1),

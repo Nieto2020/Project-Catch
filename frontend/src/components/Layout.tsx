@@ -3,11 +3,9 @@ import { useRouter } from "next/router";
 import type { ReactNode } from "react";
 
 const NAV = [
-  { href: "/", label: "Dashboard", icon: "📊" },
-  { href: "/whatif", label: "Simulador What-If", icon: "🧪" },
-  { href: "/barometro", label: "Barómetro", icon: "⚖️" },
+  { href: "/", label: "Barómetro Global", icon: "⚖️" },
   { href: "/chat", label: "Asistente IA", icon: "🤖" },
-  { href: "/comercial", label: "Planes", icon: "💎" },
+  { href: "/video", label: "Video Descriptivo", icon: "🎬" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {

@@ -13,26 +13,18 @@ export interface Kpis {
   mujeres_pct_promedio: number;
 }
 
-export interface Tendencia {
-  periodo: string;
-  periodo_num: number;
-  empresas: number;
-  headcount_mediana: number;
-  salario_medio_mediana: number;
-  rotacion_bimestral_media: number;
-  faltas_por_100_mediana: number;
+export interface DimensionGlobal {
+  clave: string;
+  peso: number;
+  meta: number;
+  unidad: string;
+  valor_actual: number;
+  score: number;
 }
 
-export interface Bucket {
-  rango: string;
-  conteo: number;
-}
-
-export interface Distribuciones {
-  headcount: { buckets: Bucket[]; min: number; mediana: number; max: number };
-  salario_medio: { histograma: Bucket[]; min: number; mediana: number; max: number };
-  rotacion_bimestral: { histograma: Bucket[]; mediana: number; max: number };
-  generaciones: Record<string, number>;
+export interface GlobalIndex {
+  score: number;
+  dimensiones: DimensionGlobal[];
 }
 
 export interface TopEmpresa {
@@ -45,17 +37,11 @@ export interface TopEmpresa {
 }
 
 export interface BarometroResumen {
+  global: GlobalIndex;
   distribucion: { min: number; promedio: number; mediana: number; max: number };
   tendencia: { periodo: string; periodo_num: number; score_promedio: number }[];
   top5: TopEmpresa[];
   dimensiones: Record<string, number>;
-}
-
-export interface DashboardData {
-  kpis: Kpis;
-  tendencias: Tendencia[];
-  distribuciones: Distribuciones;
-  barometro: BarometroResumen;
 }
 
 export interface EmpresaScore {
@@ -72,25 +58,26 @@ export interface EmpresaScore {
   headcount: number;
 }
 
-export interface Driver {
-  feature: string;
-  importance: number;
-}
-
-export interface WhatIfResult {
-  escenario: string;
-  empresa: string | null;
-  periodo: string | null;
-  rotacion_actual_pct: number;
-  rotacion_proyectada_pct: number;
-  delta_pts_porcentuales: number;
-  cambios_aplicados: Record<string, number>;
-  drivers_principales: Driver[];
-  interpretacion: string;
-}
-
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   engine?: string;
+}
+
+export interface HallazgoVideo {
+  titulo: string;
+  narracion: string;
+}
+
+export interface VideoInfo {
+  disponible: boolean;
+  path: string | null;
+  voz: string;
+  hallazgos: HallazgoVideo[] | null;
+}
+
+export interface VideoResult {
+  path: string;
+  duracion_segundos: number | null;
+  hallazgos: HallazgoVideo[];
 }

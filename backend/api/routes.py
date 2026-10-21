@@ -1,23 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Endpoints REST de SCORE."""
+"""Endpoints REST de SCORE: chatbot, barómetro y video descriptivo."""
 from __future__ import annotations
 
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
-from pydantic import BaseModel, Field
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from ..core import config
-from ..services import barometro, chatbot, kpis as kpis_service, report, whatif
+from ..services import barometro, chatbot, kpis as kpis_service, video as video_service
 
 router = APIRouter()
-
-
-class WhatIfRequest(BaseModel):
-    empresa: Optional[str] = None
-    periodo: Optional[str] = None
-    cambios: dict[str, float | str] = Field(default_factory=dict)
 
 
 class ChatRequest(BaseModel):
@@ -33,18 +27,19 @@ def root():
     return {
         "app": config.APP_NAME,
         "version": config.APP_VERSION,
+        "modulos": ["chatbot", "barometro", "video"],
         "endpoints": [
             "/api/kpis",
-            "/api/dashboard",
-            "/api/empresas",
             "/api/barometro",
+            "/api/empresas",
             "/api/periodos",
-            "/api/whatif (POST)",
             "/api/chat (POST)",
-            "/api/report/pdf",
-            "/api/report/html",
+            "/api/video (GET)",
+            "/api/video/generar (POST)",
+            "/api/video/descargar (GET)",
         ],
         "llm_configurado": bool(config.OPENAI_API_KEY),
+        "voz_video": config.SCORE_VOICE,
     }
 
 
@@ -52,17 +47,6 @@ def root():
 def get_kpis(request: Request):
     state = _state(request)
     return kpis_service.global_kpis(state.kpis)
-
-
-@router.get("/api/dashboard")
-def get_dashboard(request: Request):
-    state = _state(request)
-    return {
-        "kpis": kpis_service.global_kpis(state.kpis),
-        "tendencias": kpis_service.trends(state.kpis),
-        "distribuciones": kpis_service.distributions(state.kpis),
-        "barometro": barometro.summary(state.kpis),
-    }
 
 
 @router.get("/api/periodos")
@@ -89,33 +73,42 @@ def get_barometro(request: Request):
     return barometro.summary(state.kpis)
 
 
-@router.post("/api/whatif")
-def post_whatif(payload: WhatIfRequest, request: Request):
-    state = _state(request)
-    try:
-        return whatif.simulate(state, payload.model_dump())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
 @router.post("/api/chat")
 def post_chat(payload: ChatRequest, request: Request):
     state = _state(request)
     return chatbot.query(state, payload.pregunta)
 
 
-@router.get("/api/report/pdf")
-def get_report_pdf(request: Request):
+# ---------------------------------------------------------------------------
+# Video descriptivo
+# ---------------------------------------------------------------------------
+@router.get("/api/video")
+def get_video(request: Request):
     state = _state(request)
-    pdf_bytes = report.build_pdf(state)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="reporte_score.pdf"'},
+    exists = config.VIDEO_PATH.exists()
+    return {
+        "disponible": exists,
+        "path": str(config.VIDEO_PATH) if exists else None,
+        "voz": config.SCORE_VOICE,
+        "hallazgos": video_service.build_findings(state) if exists else None,
+    }
+
+
+@router.post("/api/video/generar")
+def post_video_generar(request: Request):
+    state = _state(request)
+    try:
+        return video_service.generate_video(state)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Error al generar el video: {exc}") from exc
+
+
+@router.get("/api/video/descargar")
+def get_video_descargar():
+    if not config.VIDEO_PATH.exists():
+        raise HTTPException(status_code=404, detail="El video aún no ha sido generado.")
+    return FileResponse(
+        config.VIDEO_PATH,
+        media_type="video/mp4",
+        filename="score_descriptivo.mp4",
     )
-
-
-@router.get("/api/report/html")
-def get_report_html(request: Request):
-    state = _state(request)
-    return HTMLResponse(content=report.build_html(state))

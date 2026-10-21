@@ -1,9 +1,10 @@
 import axios from "axios";
 import type {
   BarometroResumen,
-  DashboardData,
   EmpresaScore,
-  WhatIfResult,
+  Kpis,
+  VideoInfo,
+  VideoResult,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -13,8 +14,17 @@ export const api = axios.create({
   timeout: 30000,
 });
 
-export async function getDashboard(): Promise<DashboardData> {
-  const { data } = await api.get<DashboardData>("/api/dashboard");
+export const videoApi = axios.create({
+  baseURL: BASE_URL,
+  timeout: 600000, // la generación del video puede tardar ~1 min
+});
+
+export function videoDownloadUrl(): string {
+  return `${BASE_URL}/api/video/descargar`;
+}
+
+export async function getKpis(): Promise<Kpis> {
+  const { data } = await api.get<Kpis>("/api/kpis");
   return data;
 }
 
@@ -35,20 +45,19 @@ export async function getPeriodos(): Promise<string[]> {
   return data.periodos;
 }
 
-export interface WhatIfPayload {
-  empresa?: string | null;
-  periodo?: string | null;
-  cambios: Record<string, number>;
-}
-
-export async function postWhatif(payload: WhatIfPayload): Promise<WhatIfResult> {
-  const { data } = await api.post<WhatIfResult>("/api/whatif", payload);
-  return data;
-}
-
 export async function postChat(pregunta: string): Promise<{ answer: string; engine: string }> {
   const { data } = await api.post<{ answer: string; engine: string }>("/api/chat", {
     pregunta,
   });
+  return data;
+}
+
+export async function getVideoInfo(): Promise<VideoInfo> {
+  const { data } = await api.get<VideoInfo>("/api/video");
+  return data;
+}
+
+export async function generateVideo(): Promise<VideoResult> {
+  const { data } = await videoApi.post<VideoResult>("/api/video/generar");
   return data;
 }
