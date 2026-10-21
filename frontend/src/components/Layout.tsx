@@ -6,6 +6,7 @@ const NAV = [
   { href: "/", label: "Barómetro Global", icon: "⚖️" },
   { href: "/chat", label: "Asistente IA", icon: "🤖" },
   { href: "/video", label: "Video Descriptivo", icon: "🎬" },
+  { href: "/reportes", label: "Reportes", icon: "📄" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {

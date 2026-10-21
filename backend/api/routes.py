@@ -5,11 +5,17 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
 from ..core import config
-from ..services import barometro, chatbot, kpis as kpis_service, video as video_service
+from ..services import (
+    barometro,
+    chatbot,
+    kpis as kpis_service,
+    report as report_service,
+    video as video_service,
+)
 
 router = APIRouter()
 
@@ -27,7 +33,7 @@ def root():
     return {
         "app": config.APP_NAME,
         "version": config.APP_VERSION,
-        "modulos": ["chatbot", "barometro", "video"],
+        "modulos": ["chatbot", "barometro", "video", "reportes"],
         "endpoints": [
             "/api/kpis",
             "/api/barometro",
@@ -37,6 +43,9 @@ def root():
             "/api/video (GET)",
             "/api/video/generar (POST)",
             "/api/video/descargar (GET)",
+            "/api/report/opciones (GET)",
+            "/api/report (GET)",
+            "/api/report/descargar (GET)",
         ],
         "llm_configurado": bool(config.OPENAI_API_KEY),
         "voz_video": config.SCORE_VOICE,
@@ -111,4 +120,47 @@ def get_video_descargar():
         config.VIDEO_PATH,
         media_type="video/mp4",
         filename="score_descriptivo.mp4",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reportes ejecutivos (HTML con gráficas)
+# ---------------------------------------------------------------------------
+@router.get("/api/report/opciones")
+def get_report_opciones(request: Request):
+    state = _state(request)
+    return report_service.opciones(state)
+
+
+def _parse_periodos(periodos: str | None) -> list[str] | None:
+    if not periodos:
+        return None
+    return [p.strip() for p in periodos.split(",") if p.strip()]
+
+
+@router.get("/api/report")
+def get_report(request: Request, empresa: str | None = None, periodos: str | None = None):
+    state = _state(request)
+    try:
+        html = report_service.build_html(
+            state, empresa=empresa, periodos=_parse_periodos(periodos)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return HTMLResponse(content=html)
+
+
+@router.get("/api/report/descargar")
+def get_report_descargar(request: Request, empresa: str | None = None, periodos: str | None = None):
+    state = _state(request)
+    try:
+        html = report_service.build_html(
+            state, empresa=empresa, periodos=_parse_periodos(periodos)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=html,
+        media_type="text/html",
+        headers={"Content-Disposition": 'attachment; filename="reporte_score.html"'},
     )

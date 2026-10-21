@@ -61,3 +61,29 @@ export async function generateVideo(): Promise<VideoResult> {
   const { data } = await videoApi.post<VideoResult>("/api/video/generar");
   return data;
 }
+
+export interface ReportOpciones {
+  empresas: string[];
+  periodos: string[];
+}
+
+export async function getReportOpciones(): Promise<ReportOpciones> {
+  const { data } = await api.get<ReportOpciones>("/api/report/opciones");
+  return data;
+}
+
+export function reportUrl(empresa?: string, periodos?: string[]): string {
+  const params = new URLSearchParams();
+  if (empresa) params.set("empresa", empresa);
+  if (periodos && periodos.length > 0) params.set("periodos", periodos.join(","));
+  const qs = params.toString();
+  return `${BASE_URL}/api/report${qs ? `?${qs}` : ""}`;
+}
+
+export function reportDownloadUrl(empresa?: string, periodos?: string[]): string {
+  const params = new URLSearchParams();
+  if (empresa) params.set("empresa", empresa);
+  if (periodos && periodos.length > 0) params.set("periodos", periodos.join(","));
+  const qs = params.toString();
+  return `${BASE_URL}/api/report/descargar${qs ? `?${qs}` : ""}`;
+}

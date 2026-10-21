@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{TITULO}} — Reporte Ejecutivo</title>
+<style>
+  body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 20px; }
+  header { background: linear-gradient(135deg, #0f172a, #334155); color: #fff; padding: 24px 28px; border-radius: 14px; }
+  header h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 0; opacity: .85; }
+  .filtros { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+  .filtros .pill { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 4px 12px; font-size: 12px; }
+  section { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; margin-top: 20px; }
+  h2 { margin: 0 0 12px; font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+  th { background: #f1f5f9; font-weight: 600; }
+  .v { text-align: right; font-variant-numeric: tabular-nums; }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .charts figure { margin: 0; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px; }
+  .charts img { width: 100%; display: block; border-radius: 8px; }
+  .charts figcaption { font-size: 12px; color: #64748b; padding: 6px 4px 2px; }
+  footer { margin-top: 20px; color: #64748b; font-size: 12px; }
+  @media (max-width: 720px) { .charts { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>{{TITULO}}</h1>
+    <p>{{SUBTITULO}} · {{FECHA}}</p>
+    <div class="filtros">{{FILTROS}}</div>
+  </header>
+
+  <section>
+    <h2>Indicadores clave</h2>
+    <table>
+      <thead><tr><th>Indicador</th><th style="text-align:right">Valor</th></tr></thead>
+      <tbody>{{KPI_ROWS}}</tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Gráficas del análisis</h2>
+    <div class="charts">{{CHARTS}}</div>
+  </section>
+
+  <section>
+    <h2>{{TABLA_TITULO}}</h2>
+    <table>
+      <thead><tr>{{TABLA_HEAD}}</tr></thead>
+      <tbody>{{TABLA_ROWS}}</tbody>
+    </table>
+  </section>
+
+  <footer>
+    SCORE — Smart Catch Optimization &amp; Retention Ecosystem · Información tomada directamente del dataset ·
+    Generado localmente; no requiere autenticación ni nube.
+  </footer>
+</div>
+</body>
+</html>

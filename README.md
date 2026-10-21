@@ -3,12 +3,13 @@
 Prototipo web de analítica de Recursos Humanos impulsada por IA, para el pitch del Datatón.
 **No va a producción**: todo corre localmente, sin autenticación ni nube.
 
-El proyecto se centra en **tres módulos**:
+El proyecto se centra en **cuatro módulos**:
 
 1. **Chatbot** — asistente que responde preguntas cuantitativas sobre los datos (LangChain + LLM).
 2. **Video descriptivo** — video de 1-3 minutos con voz natural (sin avatar) que narra los
    hallazgos del análisis y muestra gráficas.
 3. **Barómetro global** — índice de competitividad 0-100 con métricas establecidas.
+4. **Reportes** — reporte ejecutivo HTML con gráficas, filtrable por empresa y bimestre.
 
 ## Requisitos
 
@@ -68,6 +69,7 @@ Abre **http://localhost:3000** en el navegador.
 | Barómetro Global | `/` | Índice global 0-100, desglose por dimensión, tendencia y ranking |
 | Asistente IA | `/chat` | Consultas en lenguaje natural sobre los datos |
 | Video Descriptivo | `/video` | Genera y reproduce el video narrado con hallazgos y gráficas |
+| Reportes | `/reportes` | Reporte ejecutivo con gráficas, filtrable por empresa y bimestre |
 
 ## Asistente IA
 
@@ -116,12 +118,22 @@ Reinicia el backend tras editar `.env`.
 
 Además muestra la tendencia del índice por bimestre y el ranking de empresas.
 
+## Reportes
+
+- Vista `/reportes`: elige **todas las empresas o una específica** y los **bimestres** a incluir.
+- Genera un reporte ejecutivo HTML con la plantilla corporativa de SCORE, con:
+  - Indicadores clave calculados del dataset filtrado.
+  - 4 gráficas (salarios, rotación/bajas, género y barómetro) incrustadas.
+  - Tabla de ranking (todas las empresas) o desglose por bimestre (empresa específica).
+- Se puede **abrir en pestaña nueva** o **descargar como HTML** (imprimible a PDF desde el navegador).
+- Endpoints: `GET /api/report/opciones`, `GET /api/report`, `GET /api/report/descargar`.
+
 ## Estructura
 
 ```
 data/            raw (Excel) y processed (parquets, codebook, video/)
 notebooks/       eda.py (limpieza y perfilado)
-backend/         FastAPI (main.py, api/, core/, services/)
+backend/         FastAPI (main.py, api/, core/, services/, templates/)
 frontend/        Next.js + Tailwind + Tremor (src/pages, components, services, store)
 ```
 
