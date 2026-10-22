@@ -125,8 +125,8 @@ Además muestra la tendencia del índice por bimestre y el ranking de empresas.
   - Indicadores clave calculados del dataset filtrado.
   - 4 gráficas (salarios, rotación/bajas, género y barómetro) incrustadas.
   - Tabla de ranking (todas las empresas) o desglose por bimestre (empresa específica).
-- Se puede **abrir en pestaña nueva** o **descargar como HTML** (imprimible a PDF desde el navegador).
-- Endpoints: `GET /api/report/opciones`, `GET /api/report`, `GET /api/report/descargar`.
+- Se puede **abrir en pestaña nueva**, **descargar como HTML** o **descargar como PDF** directamente.
+- Endpoints: `GET /api/report/opciones`, `GET /api/report`, `GET /api/report/descargar`, `GET /api/report/pdf`.
 
 ## Estructura
 

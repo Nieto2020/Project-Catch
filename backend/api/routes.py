@@ -46,6 +46,7 @@ def root():
             "/api/report/opciones (GET)",
             "/api/report (GET)",
             "/api/report/descargar (GET)",
+            "/api/report/pdf (GET)",
         ],
         "llm_configurado": bool(config.OPENAI_API_KEY),
         "voz_video": config.SCORE_VOICE,
@@ -163,4 +164,20 @@ def get_report_descargar(request: Request, empresa: str | None = None, periodos:
         content=html,
         media_type="text/html",
         headers={"Content-Disposition": 'attachment; filename="reporte_score.html"'},
+    )
+
+
+@router.get("/api/report/pdf")
+def get_report_pdf(request: Request, empresa: str | None = None, periodos: str | None = None):
+    state = _state(request)
+    try:
+        pdf = report_service.build_pdf(
+            state, empresa=empresa, periodos=_parse_periodos(periodos)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="reporte_score.pdf"'},
     )

@@ -3,6 +3,7 @@ import { Button, Card, Text, Title } from "@tremor/react";
 import {
   getReportOpciones,
   reportDownloadUrl,
+  reportPdfUrl,
   reportUrl,
   type ReportOpciones,
 } from "@/services/api";
@@ -41,6 +42,10 @@ export default function Reportes() {
 
   const descargar = () => {
     window.open(reportDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined), "_blank");
+  };
+
+  const descargarPdf = () => {
+    window.open(reportPdfUrl(empresa || undefined, periodos.length ? periodos : undefined), "_blank");
   };
 
   const abrirPestana = () => {
@@ -116,7 +121,10 @@ export default function Reportes() {
                   Abrir en pestaña
                 </Button>
                 <Button variant="secondary" onClick={descargar} className="flex-1">
-                  Descargar HTML
+                  HTML
+                </Button>
+                <Button variant="secondary" onClick={descargarPdf} className="flex-1">
+                  PDF
                 </Button>
               </div>
             </div>

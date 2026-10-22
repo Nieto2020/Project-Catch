@@ -87,3 +87,11 @@ export function reportDownloadUrl(empresa?: string, periodos?: string[]): string
   const qs = params.toString();
   return `${BASE_URL}/api/report/descargar${qs ? `?${qs}` : ""}`;
 }
+
+export function reportPdfUrl(empresa?: string, periodos?: string[]): string {
+  const params = new URLSearchParams();
+  if (empresa) params.set("empresa", empresa);
+  if (periodos && periodos.length > 0) params.set("periodos", periodos.join(","));
+  const qs = params.toString();
+  return `${BASE_URL}/api/report/pdf${qs ? `?${qs}` : ""}`;
+}

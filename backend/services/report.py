@@ -95,11 +95,15 @@ def _mean(series: pd.Series) -> float | None:
 # ---------------------------------------------------------------------------
 # Gráficas (base64 para incrustar en HTML)
 # ---------------------------------------------------------------------------
-def _data_uri(fig) -> str:
+def _png_bytes(fig) -> bytes:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    return buf.getvalue()
+
+
+def _data_uri(fig) -> str:
+    return "data:image/png;base64," + base64.b64encode(_png_bytes(fig)).decode()
 
 
 def _estilo(ax, titulo: str) -> None:
@@ -130,7 +134,7 @@ def _chart_salario(df: pd.DataFrame) -> str:
         ax.bar(labels, [v or 0 for v in vals], color=PALETA["azul"], width=0.55)
         ax.set_ylabel("MXN/día", fontsize=10, color="#334155")
         _estilo(ax, "Niveles salariales del personal operativo (mediana)")
-    return _data_uri(fig)
+    return fig
 
 
 def _chart_rotacion(df: pd.DataFrame) -> str:
@@ -155,7 +159,7 @@ def _chart_rotacion(df: pd.DataFrame) -> str:
         else:
             ax.text(0.5, 0.5, "Sin datos de bajas", ha="center", va="center", fontsize=14, color="#94a3b8")
             ax.axis("off")
-    return _data_uri(fig)
+    return fig
 
 
 def _chart_genero(df: pd.DataFrame) -> str:
@@ -170,7 +174,7 @@ def _chart_genero(df: pd.DataFrame) -> str:
         wedgeprops={"edgecolor": "white", "linewidth": 2},
     )
     ax.set_title("Composición de género (mediana)", fontsize=13, fontweight="bold", color="#0f172a", pad=10)
-    return _data_uri(fig)
+    return fig
 
 
 def _chart_barometro(df: pd.DataFrame, empresa: str | None) -> str:
@@ -193,20 +197,28 @@ def _chart_barometro(df: pd.DataFrame, empresa: str | None) -> str:
     _estilo(ax, titulo)
     for i, val in enumerate(v):
         ax.text(val + 1.5, i, f"{val:.0f}", va="center", fontsize=10, color="#334155", fontweight="bold")
-    return _data_uri(fig)
+    return fig
 
 
-def _charts_html(df: pd.DataFrame, empresa: str | None) -> str:
-    items = [
+def _chart_items(df: pd.DataFrame, empresa: str | None) -> list[tuple[str, object]]:
+    """Devuelve [(título, figura matplotlib)] de las 4 gráficas del reporte."""
+    return [
         ("Salarios", _chart_salario(df)),
         ("Rotación y bajas", _chart_rotacion(df)),
         ("Género", _chart_genero(df)),
         ("Barómetro", _chart_barometro(df, empresa)),
     ]
+
+
+def _charts_html(df: pd.DataFrame, empresa: str | None) -> str:
     return "\n".join(
-        f"<figure><img src='{uri}' alt='{titulo}' /><figcaption>{titulo}</figcaption></figure>"
-        for titulo, uri in items
+        f"<figure><img src='{_data_uri(fig)}' alt='{titulo}' /><figcaption>{titulo}</figcaption></figure>"
+        for titulo, fig in _chart_items(df, empresa)
     )
+
+
+def _charts_bytes(df: pd.DataFrame, empresa: str | None) -> list[tuple[str, bytes]]:
+    return [(titulo, _png_bytes(fig)) for titulo, fig in _chart_items(df, empresa)]
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +318,150 @@ def build_html(state, empresa: str | None = None, periodos: list[str] | None = N
         .replace("{{TABLA_HEAD}}", tabla_head)
         .replace("{{TABLA_ROWS}}", tabla_rows)
     )
+
+
+def _pdf_table_data(df: pd.DataFrame, empresa: str | None) -> tuple[str, list[str], list[list[str]]]:
+    """Tabla del reporte en formato (título, encabezados, filas) para el PDF."""
+    if empresa:
+        titulo = f"Desglose por bimestre — {empresa}"
+        headers = ["Bimestre", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Score"]
+        scored = add_scores(df).sort_values("periodo_num")
+        rows = [
+            [
+                r["periodo"], _fmt_int(r["total_headcount"]), _money(r["salario_medio"]),
+                f"{_fmt(r['tasa_bajas_bimestral_pct'])}%", _fmt(r["faltas_por_100"], 1),
+                _fmt(r["score_competitividad"], 1),
+            ]
+            for _, r in scored.iterrows()
+        ]
+    else:
+        titulo = "Ranking de empresas (top 10)"
+        headers = ["Empresa", "Periodo", "Score", "Salario medio", "Rotación", "Headcount"]
+        scored = add_scores(df).sort_values("score_competitividad", ascending=False).head(10)
+        rows = [
+            [
+                r["empresa"], r["periodo"], _fmt(r["score_competitividad"], 1),
+                _money(r["salario_medio"]), f"{_fmt(r['tasa_bajas_bimestral_pct'])}%",
+                _fmt_int(r["total_headcount"]),
+            ]
+            for _, r in scored.iterrows()
+        ]
+    return titulo, headers, rows
+
+
+def build_pdf(state, empresa: str | None = None, periodos: list[str] | None = None) -> bytes:
+    """Genera el reporte ejecutivo en PDF con las gráficas y los filtros elegidos."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        Image,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    df = filter_data(state.kpis, empresa, periodos)
+    if df.empty:
+        raise ValueError("No hay datos para la combinación de empresa y bimestres elegida.")
+
+    subtitulo = f"Empresa: {empresa}" if empresa else "Todas las empresas"
+    filtros = ", ".join(periodos) if periodos else "Todos los bimestres"
+    fecha = dt.date.today().strftime("%d/%m/%Y")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, topMargin=16 * mm, bottomMargin=16 * mm,
+        leftMargin=16 * mm, rightMargin=16 * mm, title="Reporte Ejecutivo SCORE",
+    )
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Title"], fontSize=19, leading=23, textColor=colors.white)
+    sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9.5, leading=13, textColor=colors.HexColor("#cbd5e1"))
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=13, leading=16,
+                        textColor=colors.HexColor("#0f172a"), spaceBefore=10, spaceAfter=6)
+    cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=9, leading=12)
+    cell_right = ParagraphStyle("cellRight", parent=cell, alignment=2)
+
+    story: list = []
+
+    # Encabezado (misma identidad visual que la plantilla HTML).
+    header = Table(
+        [
+            [Paragraph(config.APP_NAME, h1)],
+            [Paragraph(f"{subtitulo} · {fecha}", sub)],
+            [Paragraph(f"Filtros: {filtros} · {len(df)} registros", sub)],
+        ],
+        colWidths=[178 * mm],
+    )
+    header.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#0f172a")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 14),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 7 * mm))
+
+    # Indicadores clave.
+    story.append(Paragraph("Indicadores clave", h2))
+    kpi = Table(
+        [[Paragraph(f"<b>{k}</b>", cell), Paragraph(v, cell_right)] for k, v in kpi_rows(df, empresa)],
+        colWidths=[110 * mm, 68 * mm],
+    )
+    kpi.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#e2e8f0")),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f8fafc")),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(kpi)
+    story.append(Spacer(1, 5 * mm))
+
+    # Gráficas (2x2).
+    story.append(Paragraph("Gráficas del análisis", h2))
+    img_w = 86 * mm
+    img_h = img_w / (6.4 / 3.6)
+    images = [Image(io.BytesIO(data), width=img_w, height=img_h) for _, data in _charts_bytes(df, empresa)]
+    cells = []
+    for i in range(0, len(images), 2):
+        row = images[i:i + 2]
+        while len(row) < 2:
+            row.append("")
+        cells.append(row)
+    chart_table = Table(cells, colWidths=[img_w, img_w])
+    chart_table.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(chart_table)
+    story.append(Spacer(1, 4 * mm))
+
+    # Tabla de detalle.
+    t_titulo, t_headers, t_rows = _pdf_table_data(df, empresa)
+    story.append(Paragraph(t_titulo, h2))
+    tabla = Table([t_headers] + t_rows, repeatRows=1)
+    tabla.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#e2e8f0")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(tabla)
+
+    doc.build(story)
+    return buf.getvalue()
 
 
 def opciones(state) -> dict:
