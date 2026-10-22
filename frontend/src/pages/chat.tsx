@@ -67,7 +67,7 @@ export default function Chat() {
               <div
                 className={`max-w-[80%] rounded-xl px-4 py-3 text-sm whitespace-pre-wrap ${
                   m.role === "user"
-                    ? "bg-cyan-600 text-white"
+                    ? "bg-blue-600 text-white"
                     : "bg-slate-100 text-slate-800"
                 }`}
               >

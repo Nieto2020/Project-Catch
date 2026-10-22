@@ -81,22 +81,22 @@ export default function BarometroGlobal() {
 
       {/* Índice global + KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card decoration="top" decorationColor="cyan">
+        <Card decoration="top" decorationColor="blue">
           <Text>Índice global</Text>
           <Metric>{gi.score.toFixed(1)}</Metric>
           <Text className="mt-1">de 100</Text>
         </Card>
-        <Card decoration="top" decorationColor="blue">
+        <Card decoration="top" decorationColor="sky">
           <Text>Headcount total</Text>
           <Metric>{fmtInt(kpis.headcount_total)}</Metric>
           <Text className="mt-1">{kpis.empresas} empresas · {kpis.periodos} bimestres</Text>
         </Card>
-        <Card decoration="top" decorationColor="amber">
+        <Card decoration="top" decorationColor="indigo">
           <Text>Salario medio operativo</Text>
           <Metric>{fmtMoney(kpis.salario_medio_operativo)}</Metric>
           <Text className="mt-1">MXN/día</Text>
         </Card>
-        <Card decoration="top" decorationColor="rose">
+        <Card decoration="top" decorationColor="blue">
           <Text>Rotación bimestral</Text>
           <Metric>{fmtPct(kpis.rotacion_bimestral_promedio)}</Metric>
           <Text className="mt-1">faltas: {fmtInt(kpis.faltas_por_100_promedio)}/100</Text>
@@ -131,7 +131,7 @@ export default function BarometroGlobal() {
             data={barometro.tendencia}
             index="periodo"
             categories={["score_promedio"]}
-            colors={["cyan"]}
+            colors={["blue"]}
             showLegend={false}
             valueFormatter={(v: number) => v.toFixed(1)}
           />

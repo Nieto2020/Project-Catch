@@ -43,7 +43,7 @@ export default function VideoPage() {
             <Button onClick={generateVideo} loading={videoLoading} disabled={videoLoading}>
               {disponible ? "Regenerar video" : "Generar video"}
             </Button>
-            {videoInfo?.voz && <Badge color="cyan">Voz: {videoInfo.voz}</Badge>}
+            {videoInfo?.voz && <Badge color="blue">Voz: {videoInfo.voz}</Badge>}
           </div>
 
           <div className="mt-6">
@@ -66,7 +66,7 @@ export default function VideoPage() {
               <Text>
                 Duración: <b>{fmtDuration(video.duracion_segundos)}</b>
               </Text>
-              <a href={videoDownloadUrl()} download className="text-sm font-medium text-cyan-600 hover:underline">
+              <a href={videoDownloadUrl()} download className="text-sm font-medium text-blue-600 hover:underline">
                 Descargar MP4
               </a>
             </div>

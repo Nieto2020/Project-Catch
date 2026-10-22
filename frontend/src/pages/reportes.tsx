@@ -99,7 +99,7 @@ export default function Reportes() {
                 <button
                   type="button"
                   onClick={toggleTodos}
-                  className="text-xs font-medium text-cyan-600 hover:underline"
+                  className="text-xs font-medium text-blue-600 hover:underline"
                 >
                   {todosSeleccionados ? "Quitar todos" : "Seleccionar todos"}
                 </button>
@@ -111,7 +111,7 @@ export default function Reportes() {
                       type="checkbox"
                       checked={periodos.includes(p)}
                       onChange={() => togglePeriodo(p)}
-                      className="h-4 w-4 rounded border-slate-300 text-cyan-600"
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600"
                     />
                     {p}
                   </label>

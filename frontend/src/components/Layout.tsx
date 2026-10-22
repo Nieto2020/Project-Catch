@@ -13,13 +13,22 @@ export default function Layout({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col bg-slate-900 text-slate-100">
-        <div className="border-b border-slate-700 px-6 py-6">
-          <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400">SCORE</p>
-          <p className="mt-1 text-sm text-slate-400">
-            Smart Catch Optimization &amp; Retention Ecosystem
-          </p>
+    <div className="min-h-screen bg-blue-50/40 text-slate-800">
+      <aside className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col border-r border-blue-100 bg-white">
+        <div className="border-b border-blue-100 px-6 py-6">
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo-cc-moneda.png"
+              alt="Catch Consulting"
+              className="h-9 w-9 rounded-full opacity-90"
+            />
+            <div>
+              <p className="text-sm font-bold text-blue-800">SCORE</p>
+              <p className="mt-0.5 text-[11px] leading-tight text-slate-500">
+                Smart Catch Optimization &amp; Retention Ecosystem
+              </p>
+            </div>
+          </div>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
           {NAV.map((item) => {
@@ -30,8 +39,8 @@ export default function Layout({ children }: { children: ReactNode }) {
                 href={item.href}
                 className={`flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
                   active
-                    ? "bg-cyan-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? "bg-blue-100 text-blue-900"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-800"
                 }`}
               >
                 <span aria-hidden>{item.icon}</span>
@@ -40,7 +49,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="border-t border-slate-700 px-6 py-4 text-xs text-slate-500">
+        <div className="border-t border-blue-100 px-6 py-4 text-xs text-slate-400">
           Prototipo para pitch · Datatón
         </div>
       </aside>
