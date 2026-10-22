@@ -179,5 +179,5 @@ def get_report_pdf(request: Request, empresa: str | None = None, periodos: str |
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="reporte_score.pdf"'},
+        headers={"Content-Disposition": 'attachment; filename="reporte_score.pdf"'},
     )

@@ -41,11 +41,21 @@ export default function Reportes() {
   };
 
   const descargar = () => {
-    window.open(reportDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined), "_blank");
+    const a = document.createElement("a");
+    a.href = reportDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined);
+    a.download = "reporte_score.html";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const descargarPdf = () => {
-    window.open(reportPdfUrl(empresa || undefined, periodos.length ? periodos : undefined), "_blank");
+    const a = document.createElement("a");
+    a.href = reportPdfUrl(empresa || undefined, periodos.length ? periodos : undefined);
+    a.download = "reporte_score.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const abrirPestana = () => {
