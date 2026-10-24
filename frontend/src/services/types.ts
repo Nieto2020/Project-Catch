@@ -30,6 +30,7 @@ export interface GlobalIndex {
 export interface TopEmpresa {
   periodo: string;
   empresa: string;
+  talla: string;
   score: number;
   salario_medio: number;
   rotacion_bimestral_pct: number;
@@ -47,6 +48,7 @@ export interface BarometroResumen {
 export interface EmpresaScore {
   periodo: string;
   empresa: string;
+  talla: string;
   score_competitividad: number;
   sub_salario: number;
   sub_retencion: number;

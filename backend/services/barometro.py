@@ -14,6 +14,15 @@ WEIGHTS = {
     "sub_equilibrio": 0.10,
 }
 
+# Segmentos de tamaño (talla). El barómetro compara empresas SOLO contra
+# otras de su misma talla, para no mezclar microempresas con plantas grandes.
+TALLA_BANDS = [
+    ("Micro", 0, 50),
+    ("Pequeña", 50, 250),
+    ("Mediana", 250, 1000),
+    ("Grande", 1000, float("inf")),
+]
+
 # Metas de referencia (benchmarks simulados para el pitch). Cada dimensión se
 # convierte a 0-100 comparando la métrica de la cohorte contra su meta.
 GLOBAL_BENCHMARKS = {
@@ -73,8 +82,23 @@ def global_index(df: pd.DataFrame) -> dict:
 
 
 
+def talla_of(headcount) -> str:
+    """Devuelve la talla (segmento de tamaño) para un headcount dado."""
+    h = pd.to_numeric(pd.Series([headcount]), errors="coerce").iloc[0]
+    if pd.isna(h):
+        return "Mediana"
+    for label, lo, hi in TALLA_BANDS:
+        if lo <= h < hi:
+            return label
+    return "Grande"
+
+
 def add_scores(df: pd.DataFrame) -> pd.DataFrame:
-    """Añade `score_competitividad` y sub-indicadores al DataFrame."""
+    """Añade `talla`, `score_competitividad` y sub-indicadores al DataFrame.
+
+    Los sub-indicadores se calculan por percentil DENTRO de cada talla
+    (comparación entre pares de tamaño similar).
+    """
     out = df.copy()
 
     # Valores neutrales (mediana / 50%) para no perder el score ante nulos.
@@ -83,12 +107,14 @@ def add_scores(df: pd.DataFrame) -> pd.DataFrame:
         out[col] = out[col].fillna(out[col].median())
     out["pct_mujeres"] = pd.to_numeric(out["pct_mujeres"], errors="coerce").fillna(50.0)
 
-    # Percentil (0-100) de cada dimensión; las "peores" se invierten.
-    out["sub_salario"] = out["salario_medio"].rank(pct=True) * 100
-    out["sub_retencion"] = 100 - out["tasa_bajas_bimestral_pct"].rank(pct=True) * 100
-    out["sub_ausentismo"] = 100 - out["faltas_por_100"].rank(pct=True) * 100
-    out["sub_capacitacion"] = out["cap_por_empleado"].rank(pct=True) * 100
-    # Equilibrio de género: más cerca de 50/50 = mejor.
+    out["talla"] = out["total_headcount"].apply(talla_of)
+
+    # Percentil (0-100) dentro de la misma talla; las "peores" se invierten.
+    out["sub_salario"] = out.groupby("talla")["salario_medio"].rank(pct=True) * 100
+    out["sub_retencion"] = 100 - out.groupby("talla")["tasa_bajas_bimestral_pct"].rank(pct=True) * 100
+    out["sub_ausentismo"] = 100 - out.groupby("talla")["faltas_por_100"].rank(pct=True) * 100
+    out["sub_capacitacion"] = out.groupby("talla")["cap_por_empleado"].rank(pct=True) * 100
+    # Equilibrio de género: más cerca de 50/50 = mejor (no es relativo a pares).
     out["sub_equilibrio"] = (100 - (out["pct_mujeres"] - 50).abs() * 2).clip(lower=0, upper=100)
 
     out["score_competitividad"] = sum(
@@ -119,7 +145,7 @@ def summary(df: pd.DataFrame) -> dict:
     trend.sort(key=lambda r: r["periodo_num"])
 
     top = (
-        scored[["periodo", "empresa", "score_competitividad", "salario_medio",
+        scored[["periodo", "empresa", "talla", "score_competitividad", "salario_medio",
                 "tasa_bajas_bimestral_pct", "total_headcount"]]
         .sort_values("score_competitividad", ascending=False)
         .head(5)
@@ -128,6 +154,7 @@ def summary(df: pd.DataFrame) -> dict:
         {
             "periodo": r["periodo"],
             "empresa": r["empresa"],
+            "talla": r["talla"],
             "score": _f(r["score_competitividad"], 1),
             "salario_medio": _f(r["salario_medio"], 2),
             "rotacion_bimestral_pct": _f(r["tasa_bajas_bimestral_pct"], 2),
@@ -163,16 +190,19 @@ def company_scores(df: pd.DataFrame, periodo: str | None = None) -> list[dict]:
         scored = scored[scored["periodo"] == periodo]
 
     cols = [
-        "periodo", "empresa", "score_competitividad",
+        "periodo", "empresa", "talla", "score_competitividad",
         "sub_salario", "sub_retencion", "sub_ausentismo",
         "sub_capacitacion", "sub_equilibrio",
         "salario_medio", "tasa_bajas_bimestral_pct", "total_headcount",
     ]
     out = []
-    for _, r in scored[cols].sort_values("score_competitividad", ascending=False).iterrows():
+    for _, r in scored[cols].sort_values(
+        ["talla", "score_competitividad"], ascending=[True, False]
+    ).iterrows():
         out.append({
             "periodo": r["periodo"],
             "empresa": r["empresa"],
+            "talla": r["talla"],
             "score_competitividad": _f(r["score_competitividad"], 1),
             "sub_salario": _f(r["sub_salario"], 1),
             "sub_retencion": _f(r["sub_retencion"], 1),

@@ -33,6 +33,7 @@ const DIM_LABELS: Record<string, string> = {
 export default function BarometroGlobal() {
   const { kpis, barometro, loading, error, loadHome, empresas, loadEmpresas } = useAppStore();
   const [periodo, setPeriodo] = useState<string>("");
+  const [talla, setTalla] = useState<string>("");
 
   useEffect(() => {
     loadHome();
@@ -44,10 +45,29 @@ export default function BarometroGlobal() {
     return Array.from(set).sort();
   }, [empresas]);
 
-  const filtradas = useMemo(
-    () => (periodo ? empresas.filter((e) => e.periodo === periodo) : empresas),
-    [empresas, periodo],
-  );
+  const tallas = useMemo(() => {
+    const orden = ["Micro", "Pequeña", "Mediana", "Grande"];
+    const set = new Set(empresas.map((e) => e.talla));
+    return Array.from(set).sort((a, b) => orden.indexOf(a) - orden.indexOf(b));
+  }, [empresas]);
+
+  const filtradas = useMemo(() => {
+    let out = empresas;
+    if (periodo) out = out.filter((e) => e.periodo === periodo);
+    if (talla) out = out.filter((e) => e.talla === talla);
+    if (!periodo) {
+      // Una fila por empresa (la de mejor score) cuando se ven todos los periodos.
+      const best = new Map<string, (typeof empresas)[number]>();
+      for (const e of out) {
+        const prev = best.get(e.empresa);
+        if (!prev || e.score_competitividad > prev.score_competitividad) {
+          best.set(e.empresa, e);
+        }
+      }
+      out = Array.from(best.values());
+    }
+    return out;
+  }, [empresas, periodo, talla]);
 
   if (loading && !barometro) {
     return <div className="py-20 text-center text-slate-500">Cargando barómetro…</div>;
@@ -140,30 +160,45 @@ export default function BarometroGlobal() {
 
       {/* Ranking */}
       <Card>
-        <div className="flex items-center justify-between">
-          <Title>Ranking de empresas</Title>
-          <select
-            value={periodo}
-            onChange={(e) => {
-              const p = e.target.value;
-              setPeriodo(p);
-              loadEmpresas(p || undefined);
-            }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm"
-          >
-            <option value="">Todos los periodos</option>
-            {periodos.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center justify-between gap-3">
+          <Title>Ranking por talla de empresa</Title>
+          <div className="flex gap-2">
+            <select
+              value={talla}
+              onChange={(e) => setTalla(e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm"
+            >
+              <option value="">Todas las tallas</option>
+              {tallas.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <select
+              value={periodo}
+              onChange={(e) => {
+                const p = e.target.value;
+                setPeriodo(p);
+                loadEmpresas(p || undefined);
+              }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm"
+            >
+              <option value="">Todos los periodos</option>
+              {periodos.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <Table className="mt-4">
           <TableHead>
             <TableRow>
               <TableHeaderCell>#</TableHeaderCell>
               <TableHeaderCell>Empresa</TableHeaderCell>
+              <TableHeaderCell>Talla</TableHeaderCell>
               <TableHeaderCell>Periodo</TableHeaderCell>
               <TableHeaderCell>Score</TableHeaderCell>
               <TableHeaderCell>Salario medio</TableHeaderCell>
@@ -176,6 +211,11 @@ export default function BarometroGlobal() {
               <TableRow key={`${e.periodo}-${e.empresa}`}>
                 <TableCell>{i + 1}</TableCell>
                 <TableCell className="font-medium">{e.empresa}</TableCell>
+                <TableCell>
+                  <Badge color="blue" size="sm">
+                    {e.talla}
+                  </Badge>
+                </TableCell>
                 <TableCell>{e.periodo}</TableCell>
                 <TableCell>
                   <Badge color={scoreColor(e.score_competitividad)}>

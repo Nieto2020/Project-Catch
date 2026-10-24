@@ -247,19 +247,38 @@ def kpi_rows(df: pd.DataFrame, empresa: str | None) -> list[tuple[str, str]]:
     return rows
 
 
+def _ranking_scored(scored: pd.DataFrame, por_talla: int = 3) -> pd.DataFrame:
+    """Top N por talla (una fila por empresa, con su mejor score), ordenado por talla."""
+    orden = {"Micro": 0, "Pequeña": 1, "Mediana": 2, "Grande": 3}
+    scored = scored.copy()
+    scored["_orden"] = scored["talla"].map(lambda t: orden.get(t, 99))
+    mejor = (
+        scored.sort_values("score_competitividad", ascending=False)
+        .groupby(["talla", "empresa"], as_index=False, sort=False)
+        .head(1)
+    )
+    return (
+        mejor.sort_values(["_orden", "score_competitividad"], ascending=[True, False])
+        .groupby("talla", sort=False)
+        .head(por_talla)
+        .drop(columns="_orden")
+    )
+
+
 def table_html(df: pd.DataFrame, empresa: str | None) -> tuple[str, str, str]:
     if empresa:
         titulo = f"Desglose por bimestre — {empresa}"
         head = "".join(
             f"<th style='text-align:right'>{h}</th>" if h not in ("Bimestre",)
             else f"<th>{h}</th>"
-            for h in ["Bimestre", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Score"]
+            for h in ["Bimestre", "Talla", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Score"]
         )
         scored = add_scores(df)
         rows = ""
         for _, r in scored.sort_values("periodo_num").iterrows():
             rows += (
                 f"<tr><td>{r['periodo']}</td>"
+                f"<td>{r['talla']}</td>"
                 f"<td class='v'>{_fmt_int(r['total_headcount'])}</td>"
                 f"<td class='v'>{_money(r['salario_medio'])}</td>"
                 f"<td class='v'>{_fmt(r['tasa_bajas_bimestral_pct'])}%</td>"
@@ -267,17 +286,17 @@ def table_html(df: pd.DataFrame, empresa: str | None) -> tuple[str, str, str]:
                 f"<td class='v'>{_fmt(r['score_competitividad'], 1)}</td></tr>"
             )
     else:
-        titulo = "Ranking de empresas (top 10)"
+        titulo = "Ranking por talla (top 3 de cada talla)"
         head = "".join(
-            f"<th style='text-align:right'>{h}</th>" if h not in ("Empresa",)
+            f"<th style='text-align:right'>{h}</th>" if h not in ("Empresa", "Talla")
             else f"<th>{h}</th>"
-            for h in ["Empresa", "Periodo", "Score", "Salario medio", "Rotación", "Headcount"]
+            for h in ["Empresa", "Talla", "Periodo", "Score", "Salario medio", "Rotación", "Headcount"]
         )
-        scored = add_scores(df).sort_values("score_competitividad", ascending=False).head(10)
+        ranking = _ranking_scored(add_scores(df))
         rows = ""
-        for _, r in scored.iterrows():
+        for _, r in ranking.iterrows():
             rows += (
-                f"<tr><td>{r['empresa']}</td><td>{r['periodo']}</td>"
+                f"<tr><td>{r['empresa']}</td><td>{r['talla']}</td><td>{r['periodo']}</td>"
                 f"<td class='v'>{_fmt(r['score_competitividad'], 1)}</td>"
                 f"<td class='v'>{_money(r['salario_medio'])}</td>"
                 f"<td class='v'>{_fmt(r['tasa_bajas_bimestral_pct'])}%</td>"
@@ -324,27 +343,27 @@ def _pdf_table_data(df: pd.DataFrame, empresa: str | None) -> tuple[str, list[st
     """Tabla del reporte en formato (título, encabezados, filas) para el PDF."""
     if empresa:
         titulo = f"Desglose por bimestre — {empresa}"
-        headers = ["Bimestre", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Score"]
+        headers = ["Bimestre", "Talla", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Score"]
         scored = add_scores(df).sort_values("periodo_num")
         rows = [
             [
-                r["periodo"], _fmt_int(r["total_headcount"]), _money(r["salario_medio"]),
+                r["periodo"], r["talla"], _fmt_int(r["total_headcount"]), _money(r["salario_medio"]),
                 f"{_fmt(r['tasa_bajas_bimestral_pct'])}%", _fmt(r["faltas_por_100"], 1),
                 _fmt(r["score_competitividad"], 1),
             ]
             for _, r in scored.iterrows()
         ]
     else:
-        titulo = "Ranking de empresas (top 10)"
-        headers = ["Empresa", "Periodo", "Score", "Salario medio", "Rotación", "Headcount"]
-        scored = add_scores(df).sort_values("score_competitividad", ascending=False).head(10)
+        titulo = "Ranking por talla (top 3 de cada talla)"
+        headers = ["Empresa", "Talla", "Periodo", "Score", "Salario medio", "Rotación", "Headcount"]
+        ranking = _ranking_scored(add_scores(df))
         rows = [
             [
-                r["empresa"], r["periodo"], _fmt(r["score_competitividad"], 1),
+                r["empresa"], r["talla"], r["periodo"], _fmt(r["score_competitividad"], 1),
                 _money(r["salario_medio"]), f"{_fmt(r['tasa_bajas_bimestral_pct'])}%",
                 _fmt_int(r["total_headcount"]),
             ]
-            for _, r in scored.iterrows()
+            for _, r in ranking.iterrows()
         ]
     return titulo, headers, rows
 
