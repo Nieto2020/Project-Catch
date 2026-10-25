@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Badge, Button, Callout, Card, Text, Title } from "@tremor/react";
 import { useAppStore } from "@/store/useAppStore";
 import { videoDownloadUrl } from "@/services/api";
+import PageHeader from "@/components/PageHeader";
 
 const fmtDuration = (s: number | null) => {
   if (s == null) return "—";
@@ -22,13 +23,11 @@ export default function VideoPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Video Descriptivo</h1>
-        <p className="text-sm text-slate-500">
-          Genera un video de 1 a 3 minutos con voz natural (sin avatar) que narra los hallazgos
-          del análisis y muestra las gráficas clave.
-        </p>
-      </div>
+      <PageHeader
+        title="Video Descriptivo"
+        subtitle="Genera un video de 1 a 3 minutos con voz natural (sin avatar) que narra los hallazgos del análisis y muestra las gráficas clave."
+        icon="🎬"
+      />
 
       {videoError && (
         <Callout title="Error al generar el video" color="rose">
@@ -48,12 +47,12 @@ export default function VideoPage() {
 
           <div className="mt-6">
             {disponible ? (
-              <video controls className="w-full rounded-lg border border-slate-200">
+              <video controls className="w-full rounded-xl border border-brand-100 shadow-soft">
                 <source src={videoDownloadUrl()} type="video/mp4" />
                 Tu navegador no soporta video HTML5.
               </video>
             ) : (
-              <div className="rounded-lg border border-dashed border-slate-300 py-16 text-center text-slate-400">
+              <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/40 py-16 text-center text-slate-400">
                 {videoLoading
                   ? "Generando el video… (puede tardar alrededor de un minuto)"
                   : "Aún no hay video. Pulsa “Generar video”."}
@@ -66,7 +65,11 @@ export default function VideoPage() {
               <Text>
                 Duración: <b>{fmtDuration(video.duracion_segundos)}</b>
               </Text>
-              <a href={videoDownloadUrl()} download className="text-sm font-medium text-blue-600 hover:underline">
+              <a
+                href={videoDownloadUrl()}
+                download
+                className="text-sm font-medium text-brand-700 hover:underline"
+              >
                 Descargar MP4
               </a>
             </div>
@@ -77,8 +80,11 @@ export default function VideoPage() {
           <Title>Hallazgos del análisis</Title>
           <div className="mt-4 space-y-3">
             {(videoInfo?.hallazgos ?? video?.hallazgos ?? []).map((h, i) => (
-              <div key={i} className="rounded-lg bg-slate-50 p-3">
-                <Text className="font-semibold">
+              <div
+                key={i}
+                className="rounded-xl border border-brand-100 bg-brand-50/50 p-3 transition hover:bg-brand-50"
+              >
+                <Text className="font-semibold text-brand-900">
                   {i + 1}. {h.titulo}
                 </Text>
                 <Text className="mt-1 text-slate-600">{h.narracion}</Text>

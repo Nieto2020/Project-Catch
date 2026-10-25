@@ -15,12 +15,14 @@ import {
   Title,
 } from "@tremor/react";
 import { useAppStore } from "@/store/useAppStore";
+import PageHeader from "@/components/PageHeader";
 
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString("es-MX")}`;
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;
 const fmtInt = (v: number) => Math.round(v).toLocaleString("es-MX");
 
-const scoreColor = (s: number) => (s >= 60 ? "emerald" : s >= 40 ? "amber" : "rose");
+// Escala monocromática azul para indicadores (solo azules y blancos).
+const scoreColor = (s: number) => (s >= 60 ? "blue" : s >= 40 ? "sky" : "slate");
 
 const DIM_LABELS: Record<string, string> = {
   salario: "Salario",
@@ -91,13 +93,11 @@ export default function BarometroGlobal() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Barómetro Global de Competitividad</h1>
-        <p className="text-sm text-slate-500">
-          Índice 0-100 construido con métricas establecidas: salario (30%), retención (30%),
-          ausentismo (15%), capacitación (15%) y equilibrio de género (10%).
-        </p>
-      </div>
+      <PageHeader
+        title="Barómetro Global de Competitividad"
+        subtitle="Índice 0-100 construido con métricas establecidas: salario (30%), retención (30%), ausentismo (15%), capacitación (15%) y equilibrio de género (10%)."
+        icon="⚖️"
+      />
 
       {/* Índice global + KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -166,7 +166,7 @@ export default function BarometroGlobal() {
             <select
               value={talla}
               onChange={(e) => setTalla(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm"
+              className="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             >
               <option value="">Todas las tallas</option>
               {tallas.map((t) => (
@@ -182,7 +182,7 @@ export default function BarometroGlobal() {
                 setPeriodo(p);
                 loadEmpresas(p || undefined);
               }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm"
+              className="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             >
               <option value="">Todos los periodos</option>
               {periodos.map((p) => (
