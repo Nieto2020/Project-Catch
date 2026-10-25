@@ -12,15 +12,11 @@ from ..core import config
 @dataclass
 class AppState:
     kpis: pd.DataFrame          # dataset curado (280 x 68) + columnas derivadas
-    complete: pd.DataFrame      # dataset completo (280 x 1169)
-    codebook: pd.DataFrame      # diccionario de datos
 
 
 def load_state() -> AppState:
-    """Carga datasets y codebook en memoria."""
+    """Carga el dataset curado en memoria."""
     kpis = pd.read_parquet(config.DATA_PROCESSED)
-    complete = pd.read_parquet(config.DATA_COMPLETE)
-    codebook = pd.read_csv(config.CODEBOOK_PATH)
 
     # Derivadas usadas por varios servicios.
     salary_cols = ["salario_inicial", "salario_inter_bajo", "salario_inter_alto", "salario_maximo"]
@@ -31,4 +27,4 @@ def load_state() -> AppState:
         / kpis["total_headcount"]
     )
 
-    return AppState(kpis=kpis, complete=complete, codebook=codebook)
+    return AppState(kpis=kpis)

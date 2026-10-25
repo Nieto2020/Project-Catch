@@ -131,11 +131,14 @@ Además muestra la tendencia del índice por bimestre y el ranking de empresas.
 ## Estructura
 
 ```
-data/            raw (Excel) y processed (parquets, codebook, video/)
+assets/          logo de Catch Consulting
+data/            raw (Excel) y processed (parquet curado, codebook, perfil)
 notebooks/       eda.py (limpieza y perfilado)
 backend/         FastAPI (main.py, api/, core/, services/, templates/)
 frontend/        Next.js + Tailwind + Tremor (src/pages, components, services, store)
 ```
+
+El detalle completo de la estructura está en [structure.txt](structure.txt).
 
 ## Notas
 

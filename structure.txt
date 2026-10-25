@@ -1,19 +1,53 @@
 SCORE/
+├── assets/
+│   └── logo-cc-moneda.png          # Logo de Catch Consulting
 ├── data/
-│   ├── raw/                 # Dataset original
-│   └── processed/           # Dataset limpio (.parquet)
-├── notebooks/               # EDA, limpieza y entrenamiento de modelos (Jupyter)
-├── models/                  # Modelos exportados (.pkl) y preprocesadores
+│   ├── raw/
+│   │   └── BASE HISTORICA.xlsx     # Dataset original (7 hojas bimestrales)
+│   └── processed/
+│       ├── kpis_empresas.parquet   # Dataset curado (lo único que carga el backend)
+│       ├── encuestas_completo.parquet  # Dataset completo limpio (salida del EDA)
+│       ├── diccionario_datos.csv   # Codebook posición -> tema -> pregunta
+│       └── perfil_dataset.md       # Perfil y calidad del dataset
+├── notebooks/
+│   └── eda.py                      # EDA y limpieza: Excel -> .parquet
 ├── backend/
-│   ├── main.py              # Entry point de FastAPI
-│   ├── api/                 # Endpoints (rutas)
-│   ├── core/                # Configuración, prompts del LLM
-│   ├── services/            # Lógica (What-If, Barómetro, Agente LLM)
-│   └── templates/           # Plantillas HTML para el PDF
+│   ├── main.py                     # Entry point de FastAPI
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── api/
+│   │   └── routes.py               # Endpoints REST
+│   ├── core/
+│   │   ├── config.py               # Rutas, CORS, LLM, voz
+│   │   └── prompts.py              # Prompts del asistente IA
+│   ├── services/
+│   │   ├── state.py                # Carga el dataset en RAM
+│   │   ├── kpis.py                 # KPIs globales, tendencias, distribuciones
+│   │   ├── barometro.py            # Índice 0-100 por talla de empresa
+│   │   ├── chatbot.py              # Asistente IA (LangChain + LLM)
+│   │   ├── video.py                # Video descriptivo (gráficas + TTS + ffmpeg)
+│   │   ├── report.py               # Reportes HTML/PDF filtrables
+│   │   └── utils.py                # Helpers compartidos
+│   └── templates/
+│       └── executivo.html          # Plantilla del reporte ejecutivo
 └── frontend/
-    ├── src/
-    │   ├── components/      # UI (Botones, Tarjetas, Gráficas Tremor)
-    │   ├── pages/           # Vistas (Dashboard, What-If, Chat)
-    │   ├── services/        # Clientes Axios/Fetch hacia FastAPI
-    │   └── store/           # Estado global (Zustand o Context)
-    └── package.json
+    ├── package.json
+    ├── public/
+    │   └── logo-cc-moneda.png      # Copia del logo para la UI
+    └── src/
+        ├── components/
+        │   └── Layout.tsx          # Sidebar, navegación y logo
+        ├── pages/
+        │   ├── index.tsx           # Barómetro global (vista principal)
+        │   ├── chat.tsx            # Asistente IA
+        │   ├── video.tsx           # Video descriptivo
+        │   └── reportes.tsx        # Generación de reportes
+        ├── services/
+        │   ├── api.ts              # Cliente HTTP hacia FastAPI
+        │   └── types.ts            # Tipos compartidos
+        ├── store/
+        │   └── useAppStore.ts      # Estado global (Zustand)
+        └── styles/
+            └── globals.css         # Tailwind + estilos base
+
+Nota: `demo.ps1` (raíz) levanta backend y frontend con un solo comando.

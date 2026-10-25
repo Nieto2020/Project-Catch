@@ -14,8 +14,6 @@ load_dotenv(ROOT / "backend" / ".env")
 
 # --- Rutas de datos ---
 DATA_PROCESSED = ROOT / "data" / "processed" / "kpis_empresas.parquet"
-DATA_COMPLETE = ROOT / "data" / "processed" / "encuestas_completo.parquet"
-CODEBOOK_PATH = ROOT / "data" / "processed" / "diccionario_datos.csv"
 
 # --- Video descriptivo ---
 VIDEO_DIR = ROOT / "data" / "processed" / "video"
