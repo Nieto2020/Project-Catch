@@ -64,6 +64,19 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   engine?: string;
+  motivo?: string;
+  /** "rapida" = respuesta precalculada del dataset; "llm" = agente de lenguaje. */
+  kind?: "rapida" | "llm";
+}
+
+export interface ChatSugerencia {
+  pregunta: string;
+  respuesta: string;
+}
+
+export interface ChatEstado {
+  llm_disponible: boolean;
+  modelo: string | null;
 }
 
 export interface HallazgoVideo {

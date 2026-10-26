@@ -73,8 +73,7 @@ Abre **http://localhost:3000** en el navegador.
 
 ## Asistente IA
 
-El chat funciona **sin configuración** en "modo local" (respuestas cuantitativas
-predefinidas). Para activar el agente LangChain + LLM completo:
+El chat responde **con el modelo de lenguaje**. Para activarlo:
 
 1. Copia `backend\.env.example` a `backend\.env`.
 2. Añade tu clave: `OPENAI_API_KEY=sk-...`
@@ -92,6 +91,31 @@ OPENAI_MODEL=deepseek-chat
 ```
 
 Reinicia el backend tras editar `.env`.
+
+### Cómo funciona
+
+Cada consulta es **una sola llamada al LLM** sobre un resumen del dataset calculado
+en Python (KPIs, medianas, top empresas y barómetro). Esto lo hace rápido y confiable,
+sin iterar sobre el DataFrame. Si se adjunta contexto desde el ranking, se incluye en
+esa misma llamada.
+
+### Contexto con IA desde el ranking
+
+En el **Barómetro Global**, cada fila del ranking tiene un botón **"Contexto con IA"**.
+Al pulsarlo:
+
+1. Se navega al asistente (`/chat`) de inmediato.
+2. Los datos de esa fila (empresa, talla, bimestre, score, headcount, salario,
+   rotación y sub-indicadores) quedan adjuntos en una tarjeta de contexto.
+3. Se precarga una pregunta para que solo tengas que enviarla o editarla.
+
+Mientras el contexto está adjunto, cada consulta se envía al modelo junto con esos
+datos, así las respuestas se refieren a esa empresa y bimestre. Se puede quitar con
+el botón **Quitar**.
+
+- `GET /api/chat/estado` → `{ llm_disponible, modelo }`.
+- `GET /api/chat/sugerencias` → `[{ pregunta, respuesta }]` (precalculadas).
+- `POST /api/chat` con `{ "pregunta": "...", "contexto": "..." }` → el LLM recibe el contexto.
 
 ## Video descriptivo
 

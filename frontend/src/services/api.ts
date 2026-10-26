@@ -1,6 +1,8 @@
 import axios from "axios";
 import type {
   BarometroResumen,
+  ChatEstado,
+  ChatSugerencia,
   EmpresaScore,
   Kpis,
   VideoInfo,
@@ -17,6 +19,13 @@ export const api = axios.create({
 export const videoApi = axios.create({
   baseURL: BASE_URL,
   timeout: 600000, // la generación del video puede tardar ~1 min
+});
+
+// El agente LLM itera sobre el DataFrame y puede tardar bastante más que
+// una consulta simple; necesita su propio timeout.
+export const chatApi = axios.create({
+  baseURL: BASE_URL,
+  timeout: 180000,
 });
 
 export function videoDownloadUrl(): string {
@@ -45,11 +54,31 @@ export async function getPeriodos(): Promise<string[]> {
   return data.periodos;
 }
 
-export async function postChat(pregunta: string): Promise<{ answer: string; engine: string }> {
-  const { data } = await api.post<{ answer: string; engine: string }>("/api/chat", {
+export async function postChat(
+  pregunta: string,
+  contexto?: string | null,
+): Promise<{
+  answer: string;
+  engine: string;
+  motivo: string;
+}> {
+  const { data } = await chatApi.post("/api/chat", {
     pregunta,
+    ...(contexto ? { contexto } : {}),
   });
   return data;
+}
+
+export async function getChatEstado(): Promise<ChatEstado> {
+  const { data } = await api.get<ChatEstado>("/api/chat/estado");
+  return data;
+}
+
+export async function getChatSugerencias(): Promise<ChatSugerencia[]> {
+  const { data } = await api.get<{ sugerencias: ChatSugerencia[] }>(
+    "/api/chat/sugerencias",
+  );
+  return data.sugerencias;
 }
 
 export async function getVideoInfo(): Promise<VideoInfo> {

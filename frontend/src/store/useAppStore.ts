@@ -2,6 +2,8 @@ import { create } from "zustand";
 import {
   generateVideo,
   getBarometro,
+  getChatEstado,
+  getChatSugerencias,
   getEmpresas,
   getKpis,
   getVideoInfo,
@@ -9,7 +11,9 @@ import {
 } from "@/services/api";
 import type {
   BarometroResumen,
+  ChatEstado,
   ChatMessage,
+  ChatSugerencia,
   EmpresaScore,
   Kpis,
   VideoInfo,
@@ -27,6 +31,9 @@ interface AppState {
 
   chat: ChatMessage[];
   chatLoading: boolean;
+  chatEstado: ChatEstado | null;
+  sugerencias: ChatSugerencia[];
+  chatContexto: string | null;
 
   video: VideoResult | null;
   videoInfo: VideoInfo | null;
@@ -36,12 +43,15 @@ interface AppState {
   loadHome: () => Promise<void>;
   loadEmpresas: (periodo?: string) => Promise<void>;
   sendChat: (text: string) => Promise<void>;
+  enviarRapida: (sugerencia: ChatSugerencia) => void;
+  setChatContexto: (contexto: string | null) => void;
+  loadChatEstado: () => Promise<void>;
   resetChat: () => void;
   loadVideoInfo: () => Promise<void>;
   generateVideo: () => Promise<void>;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   kpis: null,
   barometro: null,
   loading: false,
@@ -52,6 +62,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   chat: [],
   chatLoading: false,
+  chatEstado: null,
+  sugerencias: [],
+  chatContexto: null,
 
   video: null,
   videoInfo: null,
@@ -85,19 +98,56 @@ export const useAppStore = create<AppState>((set) => ({
     const userMsg: ChatMessage = { role: "user", content: text };
     set((s) => ({ chat: [...s.chat, userMsg], chatLoading: true }));
     try {
-      const res = await postChat(text);
+      const res = await postChat(text, get().chatContexto);
       const assistantMsg: ChatMessage = {
         role: "assistant",
         content: res.answer,
         engine: res.engine,
+        motivo: res.motivo,
+        kind: "llm",
       };
       set((s) => ({ chat: [...s.chat, assistantMsg], chatLoading: false }));
     } catch (e) {
+      const detalle = e instanceof Error ? e.message : "error";
+      const esTimeout = detalle.toLowerCase().includes("timeout");
       const assistantMsg: ChatMessage = {
         role: "assistant",
-        content: `No pude conectar con la API: ${e instanceof Error ? e.message : "error"}`,
+        content: esTimeout
+          ? "El modelo tardó más de lo esperado y se agotó el tiempo de espera. " +
+            "Vuelve a intentarlo; si se repite, revisa la conexión con el proveedor del modelo."
+          : `No pude conectar con la API: ${detalle}`,
+        kind: "llm",
       };
       set((s) => ({ chat: [...s.chat, assistantMsg], chatLoading: false }));
+    }
+  },
+
+  // Las sugerencias ya traen su respuesta calculada: no consumen el modelo.
+  enviarRapida: (sugerencia) =>
+    set((s) => ({
+      chat: [
+        ...s.chat,
+        { role: "user", content: sugerencia.pregunta },
+        {
+          role: "assistant",
+          content: sugerencia.respuesta,
+          kind: "rapida",
+          motivo: "respuesta precalculada del dataset",
+        },
+      ],
+    })),
+
+  setChatContexto: (contexto) => set({ chatContexto: contexto }),
+
+  loadChatEstado: async () => {
+    try {
+      const [chatEstado, sugerencias] = await Promise.all([
+        getChatEstado(),
+        getChatSugerencias(),
+      ]);
+      set({ chatEstado, sugerencias });
+    } catch {
+      set({ chatEstado: null });
     }
   },
 

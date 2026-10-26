@@ -27,6 +27,9 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
 # DeepSeek es compatible con la API de OpenAI (solo cambia el endpoint).
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
+# Límite de la llamada al proveedor del chat (segundos).
+LLM_TIMEOUT_SEGUNDOS = float(os.getenv("LLM_TIMEOUT_SEGUNDOS", "60"))
+
 # --- Voz del video (edge-tts, voz natural de Microsoft) ---
 SCORE_VOICE = os.getenv("SCORE_VOICE", "es-MX-JorgeNeural")
 

@@ -22,6 +22,7 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     pregunta: str
+    contexto: str | None = None
 
 
 def _state(request: Request):
@@ -40,6 +41,8 @@ def root():
             "/api/empresas",
             "/api/periodos",
             "/api/chat (POST)",
+            "/api/chat/estado (GET)",
+            "/api/chat/sugerencias (GET)",
             "/api/video (GET)",
             "/api/video/generar (POST)",
             "/api/video/descargar (GET)",
@@ -83,10 +86,23 @@ def get_barometro(request: Request):
     return barometro.summary(state.kpis)
 
 
+@router.get("/api/chat/estado")
+def get_chat_estado():
+    """Indica si el modelo de lenguaje está configurado y cuál es."""
+    return chatbot.estado()
+
+
+@router.get("/api/chat/sugerencias")
+def get_chat_sugerencias(request: Request):
+    """Preguntas frecuentes con su respuesta ya calculada del dataset."""
+    state = _state(request)
+    return {"sugerencias": chatbot.sugerencias(state)}
+
+
 @router.post("/api/chat")
 def post_chat(payload: ChatRequest, request: Request):
     state = _state(request)
-    return chatbot.query(state, payload.pregunta)
+    return chatbot.query(state, payload.pregunta, payload.contexto)
 
 
 # ---------------------------------------------------------------------------

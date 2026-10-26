@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import {
   AreaChart,
   Badge,
@@ -16,10 +17,12 @@ import {
 } from "@tremor/react";
 import { useAppStore } from "@/store/useAppStore";
 import PageHeader from "@/components/PageHeader";
+import type { EmpresaScore } from "@/services/types";
 
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString("es-MX")}`;
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;
 const fmtInt = (v: number) => Math.round(v).toLocaleString("es-MX");
+const fmtScore = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(0));
 
 // Escala monocromática azul para indicadores (solo azules y blancos).
 const scoreColor = (s: number) => (s >= 60 ? "blue" : s >= 40 ? "sky" : "slate");
@@ -32,10 +35,33 @@ const DIM_LABELS: Record<string, string> = {
   equilibrio: "Equilibrio de género",
 };
 
+/** Texto de contexto que se adjunta al chat al pulsar "Contexto con IA". */
+function contextoDeFila(e: EmpresaScore): string {
+  return [
+    `Empresa: ${e.empresa}`,
+    `Talla: ${e.talla}`,
+    `Bimestre: ${e.periodo}`,
+    `Score de competitividad: ${e.score_competitividad.toFixed(1)}/100`,
+    `Headcount: ${e.headcount?.toLocaleString("es-MX") ?? "—"}`,
+    `Salario medio operativo: ${fmtMoney(e.salario_medio ?? 0)} MXN/día`,
+    `Rotación bimestral: ${e.rotacion_bimestral_pct?.toFixed(2) ?? "—"}%`,
+    `Sub-indicadores (0-100): salario ${fmtScore(e.sub_salario)}, ` +
+      `retención ${fmtScore(e.sub_retencion)}, ausentismo ${fmtScore(e.sub_ausentismo)}, ` +
+      `capacitación ${fmtScore(e.sub_capacitacion)}, equilibrio ${fmtScore(e.sub_equilibrio)}`,
+  ].join("\n");
+}
+
 export default function BarometroGlobal() {
-  const { kpis, barometro, loading, error, loadHome, empresas, loadEmpresas } = useAppStore();
+  const { kpis, barometro, loading, error, loadHome, empresas, loadEmpresas, setChatContexto } =
+    useAppStore();
   const [periodo, setPeriodo] = useState<string>("");
   const [talla, setTalla] = useState<string>("");
+  const router = useRouter();
+
+  const abrirEnChat = (e: EmpresaScore) => {
+    setChatContexto(contextoDeFila(e));
+    router.push("/chat");
+  };
 
   useEffect(() => {
     loadHome();
@@ -204,6 +230,9 @@ export default function BarometroGlobal() {
               <TableHeaderCell>Salario medio</TableHeaderCell>
               <TableHeaderCell>Rotación</TableHeaderCell>
               <TableHeaderCell>Headcount</TableHeaderCell>
+              <TableHeaderCell>
+                <span className="sr-only">Contexto con IA</span>
+              </TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -225,6 +254,23 @@ export default function BarometroGlobal() {
                 <TableCell>{fmtMoney(e.salario_medio ?? 0)}</TableCell>
                 <TableCell>{e.rotacion_bimestral_pct?.toFixed(2)}%</TableCell>
                 <TableCell>{e.headcount?.toLocaleString("es-MX")}</TableCell>
+                <TableCell className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => abrirEnChat(e)}
+                    title={`Preguntar a la IA sobre ${e.empresa} (${e.periodo})`}
+                    aria-label={`Preguntar a la IA sobre ${e.empresa} en ${e.periodo}`}
+                    className="group inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500 hover:bg-brand-600 hover:text-white hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 active:translate-y-0"
+                  >
+                    <span
+                      aria-hidden
+                      className="text-[13px] leading-none transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110"
+                    >
+                      ✨
+                    </span>
+                    Contexto con IA
+                  </button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
