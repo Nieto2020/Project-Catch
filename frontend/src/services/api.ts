@@ -6,8 +6,6 @@ import type {
   ComparativaDescriptiva,
   EmpresaScore,
   Kpis,
-  VideoInfo,
-  VideoResult,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -17,21 +15,12 @@ export const api = axios.create({
   timeout: 30000,
 });
 
-export const videoApi = axios.create({
-  baseURL: BASE_URL,
-  timeout: 600000, // la generación del video puede tardar ~1 min
-});
-
 // El agente LLM itera sobre el DataFrame y puede tardar bastante más que
 // una consulta simple; necesita su propio timeout.
 export const chatApi = axios.create({
   baseURL: BASE_URL,
   timeout: 180000,
 });
-
-export function videoDownloadUrl(): string {
-  return `${BASE_URL}/api/video/descargar`;
-}
 
 export async function getKpis(): Promise<Kpis> {
   const { data } = await api.get<Kpis>("/api/kpis");
@@ -91,16 +80,6 @@ export async function getChatSugerencias(): Promise<ChatSugerencia[]> {
     "/api/chat/sugerencias",
   );
   return data.sugerencias;
-}
-
-export async function getVideoInfo(): Promise<VideoInfo> {
-  const { data } = await api.get<VideoInfo>("/api/video");
-  return data;
-}
-
-export async function generateVideo(): Promise<VideoResult> {
-  const { data } = await videoApi.post<VideoResult>("/api/video/generar");
-  return data;
 }
 
 export interface ReportOpciones {

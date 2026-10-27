@@ -3,19 +3,17 @@
 Prototipo web de analítica de Recursos Humanos impulsada por IA, para el pitch del Datatón.
 **No va a producción**: todo corre localmente, sin autenticación ni nube.
 
-El proyecto se centra en **cuatro módulos**:
+El proyecto se centra en **tres módulos**:
 
 1. **Chatbot** — asistente que responde preguntas cuantitativas sobre los datos (LangChain + LLM).
-2. **Video descriptivo** — video de 1-3 minutos con voz natural (sin avatar) que narra los
-   hallazgos del análisis y muestra gráficas.
-3. **Barómetro global** — índice de competitividad 0-100 con métricas establecidas.
-4. **Reportes** — reporte ejecutivo HTML con gráficas, filtrable por empresa y bimestre.
+2. **Barómetro global** — índice de competitividad 0-100 con métricas establecidas.
+3. **Reportes** — reporte ejecutivo HTML con gráficas, filtrable por empresa y bimestre.
 
 ## Requisitos
 
 - Python 3.12+ (probado con 3.14)
 - Node.js 20+ (probado con 20.18.1) y npm
-- Internet (para la voz del video vía edge-tts de Microsoft y para el LLM)
+- Internet (para el LLM)
 
 ## Instalación (una sola vez)
 
@@ -68,7 +66,6 @@ Abre **http://localhost:3000** en el navegador.
 |---|---|---|
 | Barómetro Global | `/` | Índice global 0-100, desglose por dimensión, tendencia, ranking y comparador de condiciones laborales |
 | Asistente IA | `/chat` | Consultas en lenguaje natural sobre los datos |
-| Video Descriptivo | `/video` | Genera y reproduce el video narrado con hallazgos y gráficas |
 | Reportes | `/reportes` | Reporte ejecutivo con gráficas, filtrable por empresa y bimestre |
 
 ## Asistente IA
@@ -122,17 +119,6 @@ el botón **Quitar**.
 - `GET /api/chat/estado` → `{ llm_disponible, modelo }`.
 - `GET /api/chat/sugerencias` → `[{ pregunta, respuesta }]` (precalculadas).
 - `POST /api/chat` con `{ "pregunta": "...", "contexto": "..." }` → el LLM recibe el contexto.
-
-## Video descriptivo
-
-- Se genera bajo demanda desde la vista `/video` (botón "Generar video").
-- Flujo: hallazgos → gráficas (matplotlib) → narración (edge-tts, voz natural de
-  Microsoft) → ensamblado MP4 con ffmpeg (incluido vía `imageio-ffmpeg`).
-- Voz configurable en `backend\.env` con `SCORE_VOICE`:
-  - `es-MX-JorgeNeural` (hombre, por defecto)
-  - `es-MX-DaliaNeural` (mujer)
-- El MP4 se guarda en `data/processed/video/score_descriptivo.mp4` (no se commitea)
-  y puede descargarse desde la vista.
 
 ## Barómetro global
 
@@ -196,4 +182,3 @@ El detalle completo de la estructura está en [structure.txt](structure.txt).
 ## Notas
 
 - Los datos son una encuesta bimestral de RH a nivel **empresa** (40 empresas × 7 bimestres).
-- El video es el resultado del análisis descriptivo (KPIs, tendencias y barómetro).

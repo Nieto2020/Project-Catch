@@ -15,10 +15,6 @@ load_dotenv(ROOT / "backend" / ".env")
 # --- Rutas de datos ---
 DATA_PROCESSED = ROOT / "data" / "processed" / "kpis_empresas.parquet"
 
-# --- Video descriptivo ---
-VIDEO_DIR = ROOT / "data" / "processed" / "video"
-VIDEO_PATH = VIDEO_DIR / "score_descriptivo.mp4"
-
 # --- LLM (asistente IA) ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -29,9 +25,6 @@ DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 # Límite de la llamada al proveedor del chat (segundos).
 LLM_TIMEOUT_SEGUNDOS = float(os.getenv("LLM_TIMEOUT_SEGUNDOS", "60"))
-
-# --- Voz del video (edge-tts, voz natural de Microsoft) ---
-SCORE_VOICE = os.getenv("SCORE_VOICE", "es-MX-JorgeNeural")
 
 # --- CORS: el frontend Next.js corre en localhost:3000 ---
 CORS_ORIGINS = [

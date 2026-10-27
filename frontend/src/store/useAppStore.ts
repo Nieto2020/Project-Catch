@@ -1,13 +1,11 @@
 import { create } from "zustand";
 import {
-  generateVideo,
   getBarometro,
   getChatEstado,
   getChatSugerencias,
   getComparables,
   getEmpresas,
   getKpis,
-  getVideoInfo,
   postChat,
 } from "@/services/api";
 import type {
@@ -18,8 +16,6 @@ import type {
   ComparativaDescriptiva,
   EmpresaScore,
   Kpis,
-  VideoInfo,
-  VideoResult,
 } from "@/services/types";
 
 interface AppState {
@@ -40,11 +36,6 @@ interface AppState {
   sugerencias: ChatSugerencia[];
   chatContexto: string | null;
 
-  video: VideoResult | null;
-  videoInfo: VideoInfo | null;
-  videoLoading: boolean;
-  videoError: string | null;
-
   loadHome: () => Promise<void>;
   loadEmpresas: (periodo?: string) => Promise<void>;
   loadComparables: (params?: { variable?: string; periodo?: string; talla?: string }) => Promise<void>;
@@ -53,8 +44,6 @@ interface AppState {
   setChatContexto: (contexto: string | null) => void;
   loadChatEstado: () => Promise<void>;
   resetChat: () => void;
-  loadVideoInfo: () => Promise<void>;
-  generateVideo: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -74,11 +63,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   chatEstado: null,
   sugerencias: [],
   chatContexto: null,
-
-  video: null,
-  videoInfo: null,
-  videoLoading: false,
-  videoError: null,
 
   loadHome: async () => {
     set({ loading: true, error: null });
@@ -179,27 +163,4 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resetChat: () => set({ chat: [] }),
-
-  loadVideoInfo: async () => {
-    try {
-      const videoInfo = await getVideoInfo();
-      set({ videoInfo });
-    } catch {
-      // la API no está disponible; se ignora
-    }
-  },
-
-  generateVideo: async () => {
-    set({ videoLoading: true, videoError: null });
-    try {
-      const video = await generateVideo();
-      const videoInfo = await getVideoInfo();
-      set({ video, videoInfo, videoLoading: false });
-    } catch (e) {
-      set({
-        videoError: e instanceof Error ? e.message : "Error al generar el video",
-        videoLoading: false,
-      });
-    }
-  },
 }));

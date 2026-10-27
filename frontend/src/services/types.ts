@@ -132,21 +132,3 @@ export interface ChatEstado {
   llm_disponible: boolean;
   modelo: string | null;
 }
-
-export interface HallazgoVideo {
-  titulo: string;
-  narracion: string;
-}
-
-export interface VideoInfo {
-  disponible: boolean;
-  path: string | null;
-  voz: string;
-  hallazgos: HallazgoVideo[] | null;
-}
-
-export interface VideoResult {
-  path: string;
-  duracion_segundos: number | null;
-  hallazgos: HallazgoVideo[];
-}

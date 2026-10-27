@@ -121,15 +121,32 @@ def _figure():
     return fig
 
 
+def _periodo_eje(periodo: str) -> str:
+    """Etiqueta de dos líneas para el eje X: 'JUL-AGO_2024' -> 'JUL-AGO\\n2024'."""
+    rango, _, anio = str(periodo).partition("_")
+    return f"{rango}\n{anio}" if anio else str(periodo)
+
+
+def _eje_periodos(ax, g: pd.DataFrame) -> None:
+    """Coloca un bimestre por marca, sin encimarlos, en orden cronológico."""
+    ax.set_xticks(g["periodo_num"].tolist())
+    ax.set_xticklabels([_periodo_eje(p) for p in g["periodo"]], fontsize=9)
+
+
 def _chart_salario(df: pd.DataFrame) -> str:
     fig = _figure()
     ax = fig.add_subplot(111)
     if df["periodo"].nunique() > 1:
-        g = df.groupby("periodo")["salario_medio"].median().reset_index()
-        g = g.sort_values("periodo")
-        ax.plot(g["periodo"], g["salario_medio"], marker="o", linewidth=2.5, color=PALETA["cyan"], markersize=7)
+        g = (
+            df.groupby(["periodo_num", "periodo"])["salario_medio"]
+            .median()
+            .reset_index()
+            .sort_values("periodo_num")
+        )
+        ax.plot(g["periodo_num"], g["salario_medio"], marker="o", linewidth=2.5, color=PALETA["cyan"], markersize=7)
         ax.set_ylabel("MXN/día", fontsize=10, color="#334155")
         _estilo(ax, "Salario medio operativo por bimestre")
+        _eje_periodos(ax, g)
     else:
         vals = [_med(df[c]) for c in SALARY_COLS]
         labels = ["Inicial", "Inter. bajo", "Inter. alto", "Máximo"]
@@ -143,14 +160,17 @@ def _chart_rotacion(df: pd.DataFrame) -> str:
     fig = _figure()
     ax = fig.add_subplot(111)
     if df["periodo"].nunique() > 1:
-        g = df.groupby("periodo").agg(
-            rot=("tasa_bajas_bimestral_pct", "mean"),
-            faltas=("faltas_por_100", "median"),
-        ).reset_index().sort_values("periodo")
-        ax.plot(g["periodo"], g["rot"], marker="o", linewidth=2.5, color=PALETA["rosa"], markersize=7, label="Rotación %")
-        ax.plot(g["periodo"], g["faltas"], marker="s", linewidth=2.5, color=PALETA["ambar"], markersize=7, label="Faltas / 100")
+        g = (
+            df.groupby(["periodo_num", "periodo"])
+            .agg(rot=("tasa_bajas_bimestral_pct", "mean"), faltas=("faltas_por_100", "median"))
+            .reset_index()
+            .sort_values("periodo_num")
+        )
+        ax.plot(g["periodo_num"], g["rot"], marker="o", linewidth=2.5, color=PALETA["rosa"], markersize=7, label="Rotación %")
+        ax.plot(g["periodo_num"], g["faltas"], marker="s", linewidth=2.5, color=PALETA["ambar"], markersize=7, label="Faltas / 100")
         ax.legend(fontsize=10, frameon=False)
         _estilo(ax, "Rotación y ausentismo por bimestre")
+        _eje_periodos(ax, g)
     else:
         totales = {label: df[col].sum() for col, label in MOTIVOS_BAJA.items()}
         totales = {k: v for k, v in totales.items() if pd.notna(v) and v > 0}

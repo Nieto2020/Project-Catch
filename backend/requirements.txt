@@ -11,7 +11,5 @@ langchain-openai>=0.2
 langchain-experimental>=0.3
 openai>=1.40
 tabulate>=0.9
-edge-tts>=7.0
 matplotlib>=3.8
-imageio-ffmpeg>=0.5
 reportlab>=4.2

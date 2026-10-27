@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Endpoints REST de SCORE: chatbot, barómetro y video descriptivo."""
+"""Endpoints REST de SCORE: chatbot, barómetro y reportes."""
 from __future__ import annotations
 
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
 from ..core import config
@@ -16,7 +16,6 @@ from ..services import (
     detalle as detalle_service,
     kpis as kpis_service,
     report as report_service,
-    video as video_service,
 )
 
 router = APIRouter()
@@ -36,7 +35,7 @@ def root():
     return {
         "app": config.APP_NAME,
         "version": config.APP_VERSION,
-        "modulos": ["chatbot", "barometro", "video", "reportes"],
+        "modulos": ["chatbot", "barometro", "reportes"],
         "endpoints": [
             "/api/kpis",
             "/api/barometro",
@@ -46,9 +45,6 @@ def root():
             "/api/chat (POST)",
             "/api/chat/estado (GET)",
             "/api/chat/sugerencias (GET)",
-            "/api/video (GET)",
-            "/api/video/generar (POST)",
-            "/api/video/descargar (GET)",
             "/api/report/opciones (GET)",
             "/api/report (GET)",
             "/api/report/descargar (GET)",
@@ -59,7 +55,6 @@ def root():
             "/api/report/ficha (GET)",
         ],
         "llm_configurado": bool(config.OPENAI_API_KEY),
-        "voz_video": config.SCORE_VOICE,
     }
 
 
@@ -122,41 +117,6 @@ def get_chat_sugerencias(request: Request):
 def post_chat(payload: ChatRequest, request: Request):
     state = _state(request)
     return chatbot.query(state, payload.pregunta, payload.contexto)
-
-
-# ---------------------------------------------------------------------------
-# Video descriptivo
-# ---------------------------------------------------------------------------
-@router.get("/api/video")
-def get_video(request: Request):
-    state = _state(request)
-    exists = config.VIDEO_PATH.exists()
-    return {
-        "disponible": exists,
-        "path": str(config.VIDEO_PATH) if exists else None,
-        "voz": config.SCORE_VOICE,
-        "hallazgos": video_service.build_findings(state) if exists else None,
-    }
-
-
-@router.post("/api/video/generar")
-def post_video_generar(request: Request):
-    state = _state(request)
-    try:
-        return video_service.generate_video(state)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Error al generar el video: {exc}") from exc
-
-
-@router.get("/api/video/descargar")
-def get_video_descargar():
-    if not config.VIDEO_PATH.exists():
-        raise HTTPException(status_code=404, detail="El video aún no ha sido generado.")
-    return FileResponse(
-        config.VIDEO_PATH,
-        media_type="video/mp4",
-        filename="score_descriptivo.mp4",
-    )
 
 
 # ---------------------------------------------------------------------------
