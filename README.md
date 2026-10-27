@@ -66,7 +66,7 @@ Abre **http://localhost:3000** en el navegador.
 
 | Vista | Ruta | Descripción |
 |---|---|---|
-| Barómetro Global | `/` | Índice global 0-100, desglose por dimensión, tendencia y ranking |
+| Barómetro Global | `/` | Índice global 0-100, desglose por dimensión, tendencia, ranking y comparador de condiciones laborales |
 | Asistente IA | `/chat` | Consultas en lenguaje natural sobre los datos |
 | Video Descriptivo | `/video` | Genera y reproduce el video narrado con hallazgos y gráficas |
 | Reportes | `/reportes` | Reporte ejecutivo con gráficas, filtrable por empresa y bimestre |
@@ -95,9 +95,15 @@ Reinicia el backend tras editar `.env`.
 ### Cómo funciona
 
 Cada consulta es **una sola llamada al LLM** sobre un resumen del dataset calculado
-en Python (KPIs, medianas, top empresas y barómetro). Esto lo hace rápido y confiable,
-sin iterar sobre el DataFrame. Si se adjunta contexto desde el ranking, se incluye en
-esa misma llamada.
+en Python (KPIs, medianas, top empresas, barómetro, prestaciones y descansos). Esto lo
+hace rápido y confiable, sin iterar sobre el DataFrame. Si se adjunta contexto desde el
+ranking, se incluye en esa misma llamada.
+
+No hay agente con pasos ni límite de iteraciones: si el modelo no está configurado,
+falla, se agota el tiempo o devuelve una respuesta vacía, el chat responde con el
+cálculo local del dataset (o con el resumen de indicadores si la pregunta no está
+cubierta) y lo indica en el globo de la respuesta, de modo que el asistente nunca
+queda sin contestar.
 
 ### Contexto con IA desde el ranking
 
@@ -141,6 +147,29 @@ el botón **Quitar**.
 | Equilibrio de género | 10% | 50% mujeres |
 
 Además muestra la tendencia del índice por bimestre y el ranking de empresas.
+
+### Condiciones laborales comparadas (fuera del índice)
+
+Debajo del ranking, la vista incluye un comparador de variables **descriptivas** que
+**no ponderan** el índice de competitividad: sirven para revisar y comparar condiciones
+entre empresas y bimestres.
+
+| Grupo | Variables | Unidad |
+|---|---|---|
+| Días y prestaciones | Días de descanso adicionales a los festivos de ley, vacaciones (1.er año), aguinaldo (1.er año), prima vacacional, vales de despensa, fondo de ahorro | días / % |
+| Descansos adicionales | Jueves y Viernes Santo, 10 de mayo, 15 de septiembre, 2 de noviembre, 12, 24 y 31 de diciembre, matrimonio, nacimiento y defunción | sí / no |
+
+Para cada variable se muestra:
+
+- Mediana de la cohorte, rango P25–P75 y mínimo–máximo (o % de empresas que la otorgan).
+- Comparación empresa por empresa contra la **mediana de su propia talla**, con la
+  diferencia absoluta y el percentil dentro de su talla.
+- Evolución de la mediana (o del % de empresas) por bimestre y por talla.
+- El **score de cada empresa**, para contrastar sin confundir: las condiciones no suman
+  puntos al índice.
+
+Filtros: variable, bimestre (por defecto el último) y talla. Endpoint:
+`GET /api/barometro/comparables?variable=&periodo=&talla=`.
 
 ## Reportes
 

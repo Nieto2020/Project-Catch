@@ -79,33 +79,75 @@ def query(state, question: str, contexto: str | None = None) -> dict:
         }
 
     if not llm_disponible():
-        return {
-            "answer": (
-                "El asistente requiere un modelo de lenguaje. Configura "
-                "`OPENAI_API_KEY` en `backend/.env` y reinicia el backend."
-            ),
-            "engine": MODE_LLM,
-            "motivo": "sin API key configurada",
-        }
+        return _respuesta_respaldo(
+            state, question, "falta `OPENAI_API_KEY` en `backend/.env`"
+        )
 
+    inicio = time.perf_counter()
     try:
-        inicio = time.perf_counter()
         answer = _llm_query(state, question, contexto)
-        transcurrido = time.perf_counter() - inicio
-        logger.info("chat LLM respondido en %.1fs (contexto=%s)", transcurrido, bool(contexto))
-        return {
-            "answer": answer,
-            "engine": MODE_LLM,
-            "motivo": "agente LLM" + (" con contexto" if contexto else ""),
-        }
     except Exception as exc:  # noqa: BLE001 — nunca debe romper la demo
         transcurrido = time.perf_counter() - inicio
         logger.warning("chat LLM falló tras %.1fs: %s", transcurrido, exc)
+        return _respuesta_respaldo(state, question, f"error del modelo: {exc}")
+
+    transcurrido = time.perf_counter() - inicio
+    if not answer:
+        logger.warning("chat LLM devolvió una respuesta vacía tras %.1fs", transcurrido)
+        return _respuesta_respaldo(state, question, "el modelo no devolvió texto")
+
+    logger.info("chat LLM respondido en %.1fs (contexto=%s)", transcurrido, bool(contexto))
+    return {
+        "answer": answer,
+        "engine": MODE_LLM,
+        "motivo": "agente LLM" + (" con contexto" if contexto else ""),
+    }
+
+
+def _respuesta_respaldo(state, question: str, causa: str) -> dict:
+    """Respuesta garantizada cuando el modelo no está disponible o falla.
+
+    Usa la respuesta precalculada del dataset y, si la pregunta no está
+    cubierta, el resumen del dataset: el chat nunca queda sin respuesta.
+    """
+    motivo = f"respaldo local — {causa}"
+    local = None
+    try:
+        local = _local_answer(state, question)
+    except Exception:  # noqa: BLE001
+        logger.warning("la respuesta local falló", exc_info=True)
+
+    if local:
         return {
-            "answer": f"No pude consultar el modelo: {exc}",
+            "answer": (
+                f"{local}\n\n"
+                f"(Respuesta calculada del dataset: el modelo no está disponible ahora — {causa})."
+            ),
             "engine": MODE_LLM,
-            "motivo": "error del agente LLM",
+            "motivo": motivo,
         }
+
+    try:
+        resumen = _build_summary(state)
+    except Exception:  # noqa: BLE001
+        logger.warning("no se pudo construir el resumen del dataset", exc_info=True)
+        return {
+            "answer": (
+                "El asistente no puede responder en este momento "
+                f"({causa}). Revisa la configuración del modelo y reinicia el backend."
+            ),
+            "engine": MODE_LLM,
+            "motivo": motivo,
+        }
+
+    return {
+        "answer": (
+            f"El modelo no está disponible ahora ({causa}). "
+            f"Mientras tanto, este es el resumen del dataset:\n\n{resumen}"
+        ),
+        "engine": MODE_LLM,
+        "motivo": motivo,
+    }
 
 
 def _med(series: pd.Series) -> float | None:
@@ -121,7 +163,9 @@ def _mean(series: pd.Series) -> float | None:
 def _fmt(v, digits: int = 1) -> str:
     if v is None:
         return "sin dato"
-    return f"{v:,.{digits}f}".rstrip("0").rstrip(".")
+    txt = f"{v:,.{digits}f}"
+    # Solo se recortan los decimales sobrantes: "20" o "2,355" no deben cambiar.
+    return txt.rstrip("0").rstrip(".") if "." in txt else txt
 
 
 def _build_summary(state) -> str:
@@ -138,6 +182,18 @@ def _build_summary(state) -> str:
 
     sindicato_si = int((df["tiene_sindicato"] == "Sí").sum())
     pct_sindicato = sindicato_si / n_registros * 100 if n_registros else 0
+
+    def pct_otorgan(col: str) -> str:
+        return _fmt(df[col].fillna(False).astype(bool).mean() * 100, 0)
+
+    def por_talla(col: str) -> str:
+        medianas = (
+            df.groupby("talla")[col].median()
+            .reindex([t for t in ("Micro", "Pequeña", "Mediana", "Grande") if t in set(df["talla"])])
+        )
+        return ", ".join(
+            f"{talla} {_fmt(valor, 1)}" for talla, valor in medianas.items() if pd.notna(valor)
+        )
 
     top = (
         df.sort_values("score_competitividad", ascending=False)
@@ -174,6 +230,20 @@ def _build_summary(state) -> str:
         f"{_fmt(_med(df['gen_millennial_30_37'].fillna(0) + df['gen_millennial_23_29'].fillna(0)), 0)}, "
         f"Gen Z {_fmt(_med(df['gen_z']), 0)}",
         f"- Sindicato: {sindicato_si} de {n_registros} registros ({pct_sindicato:.1f}%)",
+        "- Prestaciones (medianas, personal operativo): "
+        f"vacaciones 1.er año {_fmt(_med(df['vacaciones_1er_anio']), 0)} días, "
+        f"aguinaldo {_fmt(_med(df['aguinaldo_dias']), 0)} días, "
+        f"prima vacacional {_fmt(_med(df['prima_vacacional_pct']), 0)}%, "
+        f"vales de despensa {_fmt(_med(df['vales_despensa_pct']), 1)}%, "
+        f"fondo de ahorro {_fmt(_med(df['fondo_ahorro_pct']), 1)}%",
+        f"- Descansos adicionales a los festivos de ley: mediana {_fmt(_med(df['dias_descanso_adicionales']), 0)} días. "
+        f"Los otorgan: Viernes Santo {pct_otorgan('descanso_viernes_santo')}%, Jueves Santo {pct_otorgan('descanso_jueves_santo')}%, "
+        f"12 dic {pct_otorgan('descanso_12_diciembre')}%, 24 dic {pct_otorgan('descanso_24_diciembre')}%, "
+        f"31 dic {pct_otorgan('descanso_31_diciembre')}%, 2 nov {pct_otorgan('descanso_2_noviembre')}%, "
+        f"matrimonio {pct_otorgan('descanso_matrimonio')}%, defunción {pct_otorgan('descanso_defuncion')}%",
+        f"- Descansos adicionales por talla (mediana de días): {por_talla('dias_descanso_adicionales')}",
+        f"- Aguinaldo por talla (mediana de días): {por_talla('aguinaldo_dias')}",
+        "- Nota: estas condiciones descriptivas NO ponderan el índice de competitividad.",
         f"- Barómetro global: {gi['score']:.1f}/100",
         "- Top 5 empresas por competitividad:",
         top_lineas,
@@ -214,7 +284,25 @@ def _llm_query(state, question: str, contexto: str | None = None) -> str:
             HumanMessage(content=texto),
         ]
     )
-    return resultado.content if hasattr(resultado, "content") else str(resultado)
+    return _extract_text(resultado)
+
+
+def _extract_text(resultado) -> str:
+    """Texto plano de la respuesta del modelo (algunos proveedores devuelven bloques)."""
+    contenido = getattr(resultado, "content", resultado)
+    if isinstance(contenido, str):
+        return contenido.strip()
+    if isinstance(contenido, list):
+        partes: list[str] = []
+        for bloque in contenido:
+            if isinstance(bloque, str):
+                partes.append(bloque)
+            elif isinstance(bloque, dict):
+                texto = bloque.get("text") or bloque.get("content")
+                if isinstance(texto, str):
+                    partes.append(texto)
+        return "\n".join(partes).strip()
+    return str(contenido).strip()
 
 
 def _local_answer(state, question: str, scored: pd.DataFrame | None = None) -> str | None:
@@ -227,7 +315,8 @@ def _local_answer(state, question: str, scored: pd.DataFrame | None = None) -> s
     q = _norm(question)
 
     def f(x, digits=1):
-        return f"{x:,.{digits}f}".rstrip("0").rstrip(".")
+        txt = f"{x:,.{digits}f}"
+        return txt.rstrip("0").rstrip(".") if "." in txt else txt
 
     med = df.median(numeric_only=True)
     mean = df.mean(numeric_only=True)

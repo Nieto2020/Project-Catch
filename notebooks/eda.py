@@ -128,7 +128,37 @@ CURATED: dict[int, str] = {
     # Capacitación
     357: "hrs_cap_operativos",
     358: "hrs_cap_administrativos",
+    # Prestaciones y condiciones (descriptivas: NO ponderan el índice)
+    627: "vales_despensa_pct",        # % vales de despensa (operativo)
+    630: "fondo_ahorro_pct",          # % fondo de ahorro (operativo)
+    634: "prima_vacacional_pct",      # % prima vacacional (operativo)
+    643: "vacaciones_1er_anio",       # días de vacaciones, 1.er año (operativo)
+    667: "aguinaldo_dias",            # días de aguinaldo, 1.er año (operativo)
+    698: "dias_descanso_adicionales",  # días extra a los festivos de ley
+    # Días de descanso adicionales que otorga (casilla marcada = sí lo otorga)
+    700: "descanso_jueves_santo",
+    701: "descanso_viernes_santo",
+    703: "descanso_10_mayo",
+    704: "descanso_15_septiembre",
+    707: "descanso_2_noviembre",
+    708: "descanso_12_diciembre",
+    709: "descanso_24_diciembre",
+    710: "descanso_31_diciembre",
+    711: "descanso_matrimonio",
+    712: "descanso_nacimiento",
+    713: "descanso_defuncion",
 }
+
+# Casillas de "otros días de descanso": se guardan como booleanas (marcada = sí).
+BOOL_CURATED = [
+    "descanso_jueves_santo", "descanso_viernes_santo", "descanso_10_mayo",
+    "descanso_15_septiembre", "descanso_2_noviembre", "descanso_12_diciembre",
+    "descanso_24_diciembre", "descanso_31_diciembre", "descanso_matrimonio",
+    "descanso_nacimiento", "descanso_defuncion",
+]
+
+# Porcentajes que la encuesta captura como fracción (0.25 = 25%).
+PCT_FRACTION_CURATED = ["vales_despensa_pct", "fondo_ahorro_pct", "prima_vacacional_pct"]
 
 # Columnas cuyo rango natural es 0-100 (porcentajes). Sirven para QC de calidad.
 PCT_COLS = [
@@ -246,12 +276,23 @@ def build_curated(complete: pd.DataFrame) -> pd.DataFrame:
     keep = {"q%04d" % (i + 1): name for i, name in CURATED.items()}
     curated = complete[["periodo", "periodo_num"] + list(keep)].rename(columns=keep)
 
-    # Coerción numérica de las columnas curadas.
-    numeric_curated = [n for n in CURATED.values() if n not in ("empresa", "tiene_sindicato")]
+    # Coerción numérica de las columnas curadas (las de texto/binarias se tratan aparte).
+    numeric_curated = [
+        n for n in CURATED.values()
+        if n not in ("empresa", "tiene_sindicato") and n not in BOOL_CURATED
+    ]
     for c in numeric_curated:
         curated[c] = to_numeric_series(curated[c])
     curated["empresa"] = curated["empresa"].astype("string")
     curated["tiene_sindicato"] = curated["tiene_sindicato"].astype("string")
+
+    # Casillas de "días de descanso": marcada = la empresa lo otorga.
+    for c in BOOL_CURATED:
+        curated[c] = curated[c].notna()
+
+    # Porcentajes capturados como fracción (0.25 = 25%).
+    for c in PCT_FRACTION_CURATED:
+        curated[c] = (curated[c] * 100).round(2)
 
     # KPIs derivados.
     curated["total_headcount"] = (
@@ -326,6 +367,27 @@ def write_profile(curated: pd.DataFrame, complete: pd.DataFrame, codebook: pd.Da
     ]
     for c in key_cols:
         lines.append(f"| `{c}` | {stats(curated[c])} |")
+
+    lines += [
+        "",
+        "## Variables descriptivas comparables (no ponderan el índice)",
+        "| Variable | Estadística |",
+        "|---|---|",
+    ]
+    for c in [
+        "dias_descanso_adicionales", "vacaciones_1er_anio", "aguinaldo_dias",
+        "prima_vacacional_pct", "vales_despensa_pct", "fondo_ahorro_pct",
+    ]:
+        lines.append(f"| `{c}` | {stats(curated[c])} |")
+    lines.append(
+        "| `descanso_*` | % de empresas que otorgan el día: "
+        + ", ".join(
+            f"{c.replace('descanso_', '').replace('_', ' ')} "
+            f"{curated[c].mean() * 100:.0f}%"
+            for c in BOOL_CURATED[:5]
+        )
+        + " |"
+    )
 
     lines += [
         "",

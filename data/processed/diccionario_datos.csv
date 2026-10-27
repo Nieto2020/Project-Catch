@@ -768,14 +768,14 @@ En caso de no contar con este indicador, seleccionar ""No Aplica""",Otro empleo 
 625,q0625,Ausentismo e incapacidades,Unnamed: 632,Administrativos - Promedio de Incapacidad,
 626,q0626,Ausentismo e incapacidades,Unnamed: 633,Otro (especifique),
 627,q0627,Ausentismo e incapacidades,"Por favor, capture el número aproximado de Días perdidos en el último año (Enero a Diciembre 2023)  a causa de accidentes de trabajo.No incluir accidentes de trayecto al trabajo.El campo no acepta valores decimales, porcentajes ni caracteres que no sean numéricosEn caso de no haber perdido días, capturar 0 (cero).",Open-Ended Response,
-628,q0628,Prestaciones económicas y de ley,"Por favor, especifique el porcentaje de VALES DE DESPENSA y FONDO DE AHORRO ofertado a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL.En caso de no ofrecer la prestación, favor de capturar la clave ""N/A"".En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.",Vales de Despensa - Personal Operativo% Ofertado,
+628,q0628,Prestaciones económicas y de ley,"Por favor, especifique el porcentaje de VALES DE DESPENSA y FONDO DE AHORRO ofertado a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL.En caso de no ofrecer la prestación, favor de capturar la clave ""N/A"".En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.",Vales de Despensa - Personal Operativo% Ofertado,vales_despensa_pct
 629,q0629,Prestaciones económicas y de ley,Unnamed: 636,Vales de Despensa - Personal Administrativo% Ofertado,
 630,q0630,Prestaciones económicas y de ley,Unnamed: 637,Vales de Despensa - Personal Gerencial% Ofertado,
-631,q0631,Prestaciones económicas y de ley,Unnamed: 638,Fondo de Ahorro - Personal Operativo% Ofertado,
+631,q0631,Prestaciones económicas y de ley,Unnamed: 638,Fondo de Ahorro - Personal Operativo% Ofertado,fondo_ahorro_pct
 632,q0632,Prestaciones económicas y de ley,Unnamed: 639,Fondo de Ahorro - Personal Administrativo% Ofertado,
 633,q0633,Prestaciones económicas y de ley,Unnamed: 640,Fondo de Ahorro - Personal Gerencial% Ofertado,
 634,q0634,Prestaciones económicas y de ley,Unnamed: 641,¿Está topada o tiene un límite  alguna de estas prestaciones? (especifique),
-635,q0635,Prestaciones económicas y de ley,"Por favor, especifique el porcentaje de PRIMA VACACIONAL ofertado a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL.En caso de no ofrecer la prestación, favor de capturar la clave ""N/A"".En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.",Personal Operativo - % Prima Vacacional,
+635,q0635,Prestaciones económicas y de ley,"Por favor, especifique el porcentaje de PRIMA VACACIONAL ofertado a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL.En caso de no ofrecer la prestación, favor de capturar la clave ""N/A"".En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.",Personal Operativo - % Prima Vacacional,prima_vacacional_pct
 636,q0636,Prestaciones económicas y de ley,Unnamed: 643,Personal Administrativo - % Prima Vacacional,
 637,q0637,Prestaciones económicas y de ley,Unnamed: 644,Personal Gerencial - % Prima Vacacional,
 638,q0638,Prestaciones económicas y de ley,"Por favor, especifique el porcentaje de BONO DE ASISTENCIA, BONO DE PUNTUALIDAD Y BONO DE PRODUCTIVIDAD ofertado (Solo aplica para personal operativo). En caso de no ofrecer la prestación, favor de capturar la clave ""N/A""En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.",Bono de Asistencia - % de Bonos,
@@ -784,7 +784,7 @@ En caso de no contar con este indicador, seleccionar ""No Aplica""",Otro empleo 
 641,q0641,Prestaciones económicas y de ley,"Por favor, seleccione el monto aproximado que ofrece a sus empleados en cuanto a: AYUDA POR NACIMIENTO y AYUDA POR DEFUNCIÓN. (Solo aplica para personal operativo).En caso de no ofrecer la prestación, favor de capturar la clave ""N/A"".En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.",Ayuda por Nacimiento - $ ayuda,
 642,q0642,Prestaciones económicas y de ley,Unnamed: 649,Ayuda por Defunción - $ ayuda,
 643,q0643,Prestaciones económicas y de ley,Unnamed: 650,Otro Monto (especifique),
-644,q0644,Prestaciones económicas y de ley,"Por favor, especifique los días de vacaciones que proporciona a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL por año.En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.Es necesario contestar todas las casillas.",PersonalOPERATIVO - 1° Año,
+644,q0644,Prestaciones económicas y de ley,"Por favor, especifique los días de vacaciones que proporciona a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL por año.En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.Es necesario contestar todas las casillas.",PersonalOPERATIVO - 1° Año,vacaciones_1er_anio
 645,q0645,Prestaciones económicas y de ley,Unnamed: 652,PersonalOPERATIVO - 2° Año,
 646,q0646,Prestaciones económicas y de ley,Unnamed: 653,PersonalOPERATIVO - 3° Año,
 647,q0647,Prestaciones económicas y de ley,Unnamed: 654,PersonalOPERATIVO - 4° Año,
@@ -808,7 +808,7 @@ En caso de no contar con este indicador, seleccionar ""No Aplica""",Otro empleo 
 665,q0665,Prestaciones económicas y de ley,Unnamed: 672,PersonalGERENCIAL - 6° a 10° Año,
 666,q0666,Prestaciones económicas y de ley,Unnamed: 673,PersonalGERENCIAL - 11° a 15° Año,
 667,q0667,Prestaciones económicas y de ley,Unnamed: 674,PersonalGERENCIAL - 16° a 20° Año,
-668,q0668,Prestaciones económicas y de ley,"Por favor, especifique los días de AGUINALDO que proporciona a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL por año.En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.Es necesario contestar todas las casillas.",PersonalOPERATIVO - 1° Año,
+668,q0668,Prestaciones económicas y de ley,"Por favor, especifique los días de AGUINALDO que proporciona a su personal OPERATIVO, ADMINISTRATIVO Y GERENCIAL por año.En caso de que el modelo no se ajuste a su compañía, favor de seleccionar la casilla más cercana.Es necesario contestar todas las casillas.",PersonalOPERATIVO - 1° Año,aguinaldo_dias
 669,q0669,Prestaciones económicas y de ley,Unnamed: 676,PersonalOPERATIVO - 2° Año,
 670,q0670,Prestaciones económicas y de ley,Unnamed: 677,PersonalOPERATIVO - 3° Año,
 671,q0671,Prestaciones económicas y de ley,Unnamed: 678,PersonalOPERATIVO - 4° Año,
@@ -839,22 +839,22 @@ En caso de no contar con este indicador, seleccionar ""No Aplica""",Otro empleo 
 696,q0696,Prestaciones económicas y de ley,¿Sus colaboradores cuentan con servicio médico dentro del lugar de trabajo?,Response,
 697,q0697,Prestaciones económicas y de ley,"¿Cuentan con alguna opción de ""Retiro Anticipado"" para su personal?",Response,
 698,q0698,Prestaciones económicas y de ley,Unnamed: 705,Sí. Por favor especifique el esquema o condiciones que debe cumplir el trabajador.,
-699,q0699,Prestaciones económicas y de ley,"¿Cuántos días de descanso adicionales otorga a su personal operativo?En caso de no otorgar días adicionales, seleccione ""0"".",Días - Total de Días Adicionales,
+699,q0699,Prestaciones económicas y de ley,"¿Cuántos días de descanso adicionales otorga a su personal operativo?En caso de no otorgar días adicionales, seleccione ""0"".",Días - Total de Días Adicionales,dias_descanso_adicionales
 700,q0700,Prestaciones económicas y de ley,"Adicional a los días festivos de ley, ¿Qué otros días de descanso otorga a sus empleados?",Miércoles Santo,
-701,q0701,Prestaciones económicas y de ley,Unnamed: 708,Jueves Santo,
-702,q0702,Prestaciones económicas y de ley,Unnamed: 709,Viernes Santo,
+701,q0701,Prestaciones económicas y de ley,Unnamed: 708,Jueves Santo,descanso_jueves_santo
+702,q0702,Prestaciones económicas y de ley,Unnamed: 709,Viernes Santo,descanso_viernes_santo
 703,q0703,Prestaciones económicas y de ley,Unnamed: 710,5 de Mayo,
-704,q0704,Prestaciones económicas y de ley,Unnamed: 711,10 de Mayo,
-705,q0705,Prestaciones económicas y de ley,Unnamed: 712,15 de Septiembre,
+704,q0704,Prestaciones económicas y de ley,Unnamed: 711,10 de Mayo,descanso_10_mayo
+705,q0705,Prestaciones económicas y de ley,Unnamed: 712,15 de Septiembre,descanso_15_septiembre
 706,q0706,Prestaciones económicas y de ley,Unnamed: 713,12 de Octubre,
 707,q0707,Prestaciones económicas y de ley,Unnamed: 714,1 de Noviembre,
-708,q0708,Prestaciones económicas y de ley,Unnamed: 715,2 de Noviembre,
-709,q0709,Prestaciones económicas y de ley,Unnamed: 716,12 de Diciembre,
-710,q0710,Prestaciones económicas y de ley,Unnamed: 717,24 de Diciembre,
-711,q0711,Prestaciones económicas y de ley,Unnamed: 718,31 de Diciembre,
-712,q0712,Prestaciones económicas y de ley,Unnamed: 719,Matrimonio,
-713,q0713,Prestaciones económicas y de ley,Unnamed: 720,Nacimiento,
-714,q0714,Prestaciones económicas y de ley,Unnamed: 721,Defunción de algún familiar,
+708,q0708,Prestaciones económicas y de ley,Unnamed: 715,2 de Noviembre,descanso_2_noviembre
+709,q0709,Prestaciones económicas y de ley,Unnamed: 716,12 de Diciembre,descanso_12_diciembre
+710,q0710,Prestaciones económicas y de ley,Unnamed: 717,24 de Diciembre,descanso_24_diciembre
+711,q0711,Prestaciones económicas y de ley,Unnamed: 718,31 de Diciembre,descanso_31_diciembre
+712,q0712,Prestaciones económicas y de ley,Unnamed: 719,Matrimonio,descanso_matrimonio
+713,q0713,Prestaciones económicas y de ley,Unnamed: 720,Nacimiento,descanso_nacimiento
+714,q0714,Prestaciones económicas y de ley,Unnamed: 721,Defunción de algún familiar,descanso_defuncion
 715,q0715,Prestaciones económicas y de ley,Unnamed: 722,Ninguno,
 716,q0716,Prestaciones económicas y de ley,Unnamed: 723,Otro (especifique),
 717,q0717,Reparto de utilidades (PTU),"¿Otorgaran Utilidades y/o bono sustituto en este año 2024?Ejercicio 2023, otorgado en el 2023.Por favor seleccione al menos una opción.",No se otorga / No Aplica,

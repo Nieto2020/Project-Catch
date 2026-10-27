@@ -12,6 +12,7 @@ from ..core import config
 from ..services import (
     barometro,
     chatbot,
+    descriptivo,
     kpis as kpis_service,
     report as report_service,
     video as video_service,
@@ -38,6 +39,7 @@ def root():
         "endpoints": [
             "/api/kpis",
             "/api/barometro",
+            "/api/barometro/comparables",
             "/api/empresas",
             "/api/periodos",
             "/api/chat (POST)",
@@ -84,6 +86,18 @@ def get_empresas(request: Request, periodo: Optional[str] = None):
 def get_barometro(request: Request):
     state = _state(request)
     return barometro.summary(state.kpis)
+
+
+@router.get("/api/barometro/comparables")
+def get_comparables(
+    request: Request,
+    variable: Optional[str] = None,
+    periodo: Optional[str] = None,
+    talla: Optional[str] = None,
+):
+    """Variables descriptivas (descansos, vacaciones, prestaciones) fuera del índice."""
+    state = _state(request)
+    return descriptivo.comparativa(state.kpis, variable=variable, periodo=periodo, talla=talla)
 
 
 @router.get("/api/chat/estado")

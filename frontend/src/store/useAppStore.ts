@@ -4,6 +4,7 @@ import {
   getBarometro,
   getChatEstado,
   getChatSugerencias,
+  getComparables,
   getEmpresas,
   getKpis,
   getVideoInfo,
@@ -14,6 +15,7 @@ import type {
   ChatEstado,
   ChatMessage,
   ChatSugerencia,
+  ComparativaDescriptiva,
   EmpresaScore,
   Kpis,
   VideoInfo,
@@ -29,6 +31,9 @@ interface AppState {
   empresas: EmpresaScore[];
   empresasLoading: boolean;
 
+  comparables: ComparativaDescriptiva | null;
+  comparablesLoading: boolean;
+
   chat: ChatMessage[];
   chatLoading: boolean;
   chatEstado: ChatEstado | null;
@@ -42,6 +47,7 @@ interface AppState {
 
   loadHome: () => Promise<void>;
   loadEmpresas: (periodo?: string) => Promise<void>;
+  loadComparables: (params?: { variable?: string; periodo?: string; talla?: string }) => Promise<void>;
   sendChat: (text: string) => Promise<void>;
   enviarRapida: (sugerencia: ChatSugerencia) => void;
   setChatContexto: (contexto: string | null) => void;
@@ -59,6 +65,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   empresas: [],
   empresasLoading: false,
+
+  comparables: null,
+  comparablesLoading: false,
 
   chat: [],
   chatLoading: false,
@@ -94,6 +103,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // Variables descriptivas que no ponderan el índice (descansos, prestaciones).
+  loadComparables: async (params) => {
+    set({ comparablesLoading: true });
+    try {
+      const comparables = await getComparables(params);
+      set({ comparables, comparablesLoading: false });
+    } catch {
+      set({ comparablesLoading: false });
+    }
+  },
+
   sendChat: async (text) => {
     const userMsg: ChatMessage = { role: "user", content: text };
     set((s) => ({ chat: [...s.chat, userMsg], chatLoading: true }));
@@ -107,6 +127,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         kind: "llm",
       };
       set((s) => ({ chat: [...s.chat, assistantMsg], chatLoading: false }));
+      // Si el estado inicial no cargó (backend arrancando), se corrige solo.
+      if (!get().chatEstado) void get().loadChatEstado();
     } catch (e) {
       const detalle = e instanceof Error ? e.message : "error";
       const esTimeout = detalle.toLowerCase().includes("timeout");
@@ -140,15 +162,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   setChatContexto: (contexto) => set({ chatContexto: contexto }),
 
   loadChatEstado: async () => {
-    try {
-      const [chatEstado, sugerencias] = await Promise.all([
-        getChatEstado(),
-        getChatSugerencias(),
-      ]);
-      set({ chatEstado, sugerencias });
-    } catch {
-      set({ chatEstado: null });
+    // El backend puede estar arrancando (demo.ps1, --reload): se reintenta.
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        const [chatEstado, sugerencias] = await Promise.all([
+          getChatEstado(),
+          getChatSugerencias(),
+        ]);
+        set({ chatEstado, sugerencias });
+        return;
+      } catch {
+        if (intento < 2) await new Promise((r) => setTimeout(r, 1200));
+      }
     }
+    set({ chatEstado: null });
   },
 
   resetChat: () => set({ chat: [] }),

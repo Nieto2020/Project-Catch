@@ -25,6 +25,17 @@ Fuente: `BASE HISTORICA.xlsx` (7 hojas, una por bimestre).
 | `total_headcount` | n=280, min=12.0, mediana=470.5, max=17,560.0 |
 | `tasa_bajas_bimestral_pct` | n=233, min=0.0, mediana=5.6, max=38.1 |
 
+## Variables descriptivas comparables (no ponderan el índice)
+| Variable | Estadística |
+|---|---|
+| `dias_descanso_adicionales` | n=236, min=0.0, mediana=2.0, max=7.0 |
+| `vacaciones_1er_anio` | n=259, min=6.0, mediana=12.0, max=15.0 |
+| `aguinaldo_dias` | n=273, min=15.0, mediana=20.0, max=40.0 |
+| `prima_vacacional_pct` | n=273, min=25.0, mediana=50.0, max=150.0 |
+| `vales_despensa_pct` | n=252, min=4.5, mediana=10.0, max=15.0 |
+| `fondo_ahorro_pct` | n=238, min=3.0, mediana=8.0, max=15.0 |
+| `descanso_*` | % de empresas que otorgan el día: jueves santo 38%, viernes santo 61%, 10 mayo 12%, 15 septiembre 14%, 2 noviembre 20% |
+
 ## Calidad de datos detectada
 - Placeholders normalizados a nulos: `-`, vacío, `nan`, `N/A`.
 - `pct_mujeres` / `pct_hombres` (y generaciones) deberían sumar 100; existen valores >100 (p. ej. 368, 683) que sugieren captura errónea (porcentajes con decimal corrido).

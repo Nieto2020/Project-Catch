@@ -18,7 +18,7 @@ export interface DimensionGlobal {
   peso: number;
   meta: number;
   unidad: string;
-  valor_actual: number;
+  valor_actual: number | null;
   score: number;
 }
 
@@ -58,6 +58,60 @@ export interface EmpresaScore {
   salario_medio: number;
   rotacion_bimestral_pct: number;
   headcount: number;
+  /** Condiciones descriptivas: no ponderan el índice de competitividad. */
+  dias_descanso_adicionales: number | null;
+  vacaciones_dias: number | null;
+  aguinaldo_dias: number | null;
+  prima_vacacional_pct: number | null;
+}
+
+export interface VariableComparable {
+  clave: string;
+  etiqueta: string;
+  grupo: string;
+  unidad: string;
+  tipo: "numerica" | "booleana";
+  mejor: "alto" | "bajo";
+  descripcion: string;
+  resumen: string;
+}
+
+export interface ResumenComparable {
+  n: number;
+  cobertura_pct?: number | null;
+  mediana?: number | null;
+  promedio?: number | null;
+  p25?: number | null;
+  p75?: number | null;
+  min?: number | null;
+  max?: number | null;
+  otorgan?: number;
+  otorgan_pct?: number | null;
+}
+
+export interface EmpresaComparada {
+  empresa: string;
+  periodo: string;
+  talla: string;
+  score_competitividad: number | null;
+  valor: number | null;
+  otorga: boolean | null;
+  mediana_talla: number | null;
+  diferencia: number | null;
+  diferencia_pct: number | null;
+  percentil: number | null;
+  pct_talla: number | null;
+}
+
+export interface ComparativaDescriptiva {
+  variable: VariableComparable;
+  periodo_efectivo: string;
+  talla: string | null;
+  resumen: ResumenComparable;
+  por_talla: (ResumenComparable & { talla: string })[];
+  por_periodo: (ResumenComparable & { periodo: string; periodo_num: number })[];
+  empresas: EmpresaComparada[];
+  variables: VariableComparable[];
 }
 
 export interface ChatMessage {

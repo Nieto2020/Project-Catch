@@ -194,6 +194,9 @@ def company_scores(df: pd.DataFrame, periodo: str | None = None) -> list[dict]:
         "sub_salario", "sub_retencion", "sub_ausentismo",
         "sub_capacitacion", "sub_equilibrio",
         "salario_medio", "tasa_bajas_bimestral_pct", "total_headcount",
+        # Condiciones descriptivas (no ponderan el índice).
+        "dias_descanso_adicionales", "vacaciones_1er_anio", "aguinaldo_dias",
+        "prima_vacacional_pct",
     ]
     out = []
     for _, r in scored[cols].sort_values(
@@ -212,5 +215,9 @@ def company_scores(df: pd.DataFrame, periodo: str | None = None) -> list[dict]:
             "salario_medio": _f(r["salario_medio"], 2),
             "rotacion_bimestral_pct": _f(r["tasa_bajas_bimestral_pct"], 2),
             "headcount": _f(r["total_headcount"], 0),
+            "dias_descanso_adicionales": _f(r["dias_descanso_adicionales"], 0),
+            "vacaciones_dias": _f(r["vacaciones_1er_anio"], 0),
+            "aguinaldo_dias": _f(r["aguinaldo_dias"], 0),
+            "prima_vacacional_pct": _f(r["prima_vacacional_pct"], 1),
         })
     return out

@@ -3,6 +3,7 @@ import type {
   BarometroResumen,
   ChatEstado,
   ChatSugerencia,
+  ComparativaDescriptiva,
   EmpresaScore,
   Kpis,
   VideoInfo,
@@ -39,6 +40,17 @@ export async function getKpis(): Promise<Kpis> {
 
 export async function getBarometro(): Promise<BarometroResumen> {
   const { data } = await api.get<BarometroResumen>("/api/barometro");
+  return data;
+}
+
+export async function getComparables(params?: {
+  variable?: string;
+  periodo?: string;
+  talla?: string;
+}): Promise<ComparativaDescriptiva> {
+  const { data } = await api.get<ComparativaDescriptiva>("/api/barometro/comparables", {
+    params: params ?? {},
+  });
   return data;
 }
 
