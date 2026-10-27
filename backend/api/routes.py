@@ -13,6 +13,7 @@ from ..services import (
     barometro,
     chatbot,
     descriptivo,
+    detalle as detalle_service,
     kpis as kpis_service,
     report as report_service,
     video as video_service,
@@ -52,6 +53,10 @@ def root():
             "/api/report (GET)",
             "/api/report/descargar (GET)",
             "/api/report/pdf (GET)",
+            "/api/report/detalle (GET)",
+            "/api/report/detalle/descargar (GET)",
+            "/api/report/detalle/pdf (GET)",
+            "/api/report/ficha (GET)",
         ],
         "llm_configurado": bool(config.OPENAI_API_KEY),
         "voz_video": config.SCORE_VOICE,
@@ -211,3 +216,63 @@ def get_report_pdf(request: Request, empresa: str | None = None, periodos: str |
         media_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="reporte_score.pdf"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Reporte detallado (ficha completa por empresa y bimestres)
+# ---------------------------------------------------------------------------
+@router.get("/api/report/detalle")
+def get_report_detalle(request: Request, empresa: str | None = None, periodos: str | None = None):
+    state = _state(request)
+    try:
+        html = report_service.build_detalle_html(
+            state, empresa=empresa, periodos=_parse_periodos(periodos)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return HTMLResponse(content=html)
+
+
+@router.get("/api/report/detalle/descargar")
+def get_report_detalle_descargar(request: Request, empresa: str | None = None, periodos: str | None = None):
+    state = _state(request)
+    try:
+        html = report_service.build_detalle_html(
+            state, empresa=empresa, periodos=_parse_periodos(periodos)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=html,
+        media_type="text/html",
+        headers={"Content-Disposition": 'attachment; filename="reporte_detallado.html"'},
+    )
+
+
+@router.get("/api/report/detalle/pdf")
+def get_report_detalle_pdf(request: Request, empresa: str | None = None, periodos: str | None = None):
+    state = _state(request)
+    try:
+        pdf = report_service.build_detalle_pdf(
+            state, empresa=empresa, periodos=_parse_periodos(periodos)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="reporte_detallado.pdf"'},
+    )
+
+
+@router.get("/api/report/ficha")
+def get_report_ficha(request: Request, empresa: str | None = None, periodos: str | None = None):
+    """Ficha estructurada (JSON) de una empresa o cohorte; la misma que usa el chat."""
+    state = _state(request)
+    try:
+        ficha = detalle_service.perfil(
+            state, empresa=empresa, periodos=_parse_periodos(periodos)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ficha

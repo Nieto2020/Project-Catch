@@ -16,6 +16,7 @@ import pandas as pd  # noqa: E402
 
 from ..core import config  # noqa: E402
 from .barometro import add_scores, global_index  # noqa: E402
+from .detalle import perfil  # noqa: E402
 from .utils import jsonable  # noqa: E402
 
 plt.rcParams["font.family"] = "DejaVu Sans"
@@ -32,6 +33,7 @@ PALETA = {
 }
 
 _TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "executivo.html"
+_TEMPLATE_DETALLE = Path(__file__).resolve().parents[1] / "templates" / "detallado.html"
 
 SALARY_COLS = ["salario_inicial", "salario_inter_bajo", "salario_inter_alto", "salario_maximo"]
 MOTIVOS_BAJA = {
@@ -162,18 +164,50 @@ def _chart_rotacion(df: pd.DataFrame) -> str:
     return fig
 
 
-def _chart_genero(df: pd.DataFrame) -> str:
-    mujeres = _med(df["pct_mujeres"]) or 0
-    hombres = 100 - mujeres
+def _chart_bajas_motivo(df: pd.DataFrame) -> str:
+    """Bajas por motivo (suma de todos los bimestres seleccionados)."""
     fig = _figure()
     ax = fig.add_subplot(111)
+    totales = {label: df[col].sum() for col, label in MOTIVOS_BAJA.items()}
+    totales = {k: v for k, v in totales.items() if pd.notna(v) and v > 0}
+    if totales:
+        totales = dict(sorted(totales.items(), key=lambda x: x[1])[-8:])
+        ax.barh(list(totales.keys()), list(totales.values()), color=PALETA["rosa"])
+        _estilo(ax, "Bajas por motivo (suma del periodo)")
+    else:
+        ax.text(0.5, 0.5, "Sin datos de bajas", ha="center", va="center", fontsize=14, color="#94a3b8")
+        ax.axis("off")
+    return fig
+
+
+def _genero_split(df: pd.DataFrame) -> tuple[float, float] | None:
+    """(mujeres %, hombres %) del periodo; None si no hay porcentaje utilizable."""
+    mujeres = _med(df["pct_mujeres"])
+    if mujeres is None:
+        hombres = _med(df["pct_hombres"])
+        if hombres is None:
+            return None
+        mujeres = 100 - hombres
+    mujeres = min(100.0, max(0.0, mujeres))
+    return mujeres, 100 - mujeres
+
+
+def _chart_genero(df: pd.DataFrame) -> str:
+    fig = _figure()
+    ax = fig.add_subplot(111)
+    ax.set_title("Composición de género (mediana)", fontsize=13, fontweight="bold", color="#0f172a", pad=10)
+    split = _genero_split(df)
+    if split is None:
+        ax.text(0.5, 0.5, "Sin datos de género", ha="center", va="center", fontsize=14, color="#94a3b8")
+        ax.axis("off")
+        return fig
+    mujeres, hombres = split
     ax.pie(
         [mujeres, hombres], labels=["Mujeres", "Hombres"], autopct="%1.0f%%",
         colors=[PALETA["violeta"], PALETA["cyan"]], startangle=90,
         textprops={"fontsize": 11, "color": "#0f172a"},
         wedgeprops={"edgecolor": "white", "linewidth": 2},
     )
-    ax.set_title("Composición de género (mediana)", fontsize=13, fontweight="bold", color="#0f172a", pad=10)
     return fig
 
 
@@ -478,6 +512,262 @@ def build_pdf(state, empresa: str | None = None, periodos: list[str] | None = No
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(tabla)
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Reporte detallado (ficha completa de empresa, consultoría)
+# ---------------------------------------------------------------------------
+def _fmt_celda(fila: dict) -> str:
+    tipo = fila.get("tipo", "num")
+    valor = fila.get("valor")
+    unidad = fila.get("unidad", "")
+    if valor is None:
+        return "—"
+    if tipo == "texto":
+        return str(valor)
+    if tipo == "int":
+        return f"{int(valor):,}" + (f" {unidad}" if unidad else "")
+    if tipo == "pct":
+        return f"{float(valor):,.1f}%"
+    if tipo == "desglose":
+        return ""
+    return f"{float(valor):,.1f}" + (f" {unidad}" if unidad else "")
+
+
+def _fmt_ref(fila: dict) -> str:
+    ref = fila.get("cohorte")
+    if ref is None:
+        return ""
+    tipo = fila.get("tipo", "num")
+    if tipo == "pct":
+        return f"{float(ref):,.1f}%"
+    if tipo == "int":
+        return f"{int(ref):,}"
+    return f"{float(ref):,.1f}"
+
+
+def _desglose_html(fila: dict) -> str:
+    items = fila.get("desglose") or []
+    lis = []
+    for d in items:
+        etiqueta = d["etiqueta"]
+        valor = d.get("valor")
+        pct = d.get("pct")
+        if isinstance(valor, str):
+            texto = f"{etiqueta}: {valor}"
+            if pct is not None:
+                texto += f" ({float(pct):,.0f}% de la talla)"
+        elif valor is None:
+            texto = f"{etiqueta}: —"
+        else:
+            texto = f"{etiqueta}: {int(valor):,}"
+            if pct is not None:
+                texto += f" ({float(pct):,.1f}%)"
+        lis.append(f"<li>{texto}</li>")
+    return "<ul class='desglose'>" + "".join(lis) + "</ul>"
+
+
+def _secciones_html(p: dict) -> str:
+    out = []
+    for sec in p["secciones"]:
+        filas_html = []
+        for fila in sec["filas"]:
+            if fila.get("tipo") == "desglose":
+                filas_html.append(
+                    f"<tr><td colspan='3' class='desglose-celda'>"
+                    f"<span class='sub'>{fila['etiqueta']}</span>{_desglose_html(fila)}</td></tr>"
+                )
+            else:
+                filas_html.append(
+                    f"<tr><td>{fila['etiqueta']}</td>"
+                    f"<td class='v'>{_fmt_celda(fila)}</td>"
+                    f"<td class='v ref'>{_fmt_ref(fila) or '—'}</td></tr>"
+                )
+                if fila.get("desglose"):
+                    filas_html.append(
+                        f"<tr><td colspan='3' class='desglose-celda'>{_desglose_html(fila)}</td></tr>"
+                    )
+        out.append(
+            f"<section><h2>{sec['titulo']}</h2><table>"
+            "<thead><tr><th>Indicador</th><th style='text-align:right'>Valor</th>"
+            "<th style='text-align:right'>Referencia (talla)</th></tr></thead>"
+            f"<tbody>{''.join(filas_html)}</tbody></table></section>"
+        )
+    return "\n".join(out)
+
+
+def _chart_items_detalle(df: pd.DataFrame, empresa: str | None) -> list[tuple[str, object]]:
+    return [
+        ("Salarios", _chart_salario(df)),
+        ("Rotación y ausentismo", _chart_rotacion(df)),
+        ("Bajas por motivo", _chart_bajas_motivo(df)),
+        ("Género", _chart_genero(df)),
+        ("Barómetro", _chart_barometro(df, empresa)),
+    ]
+
+
+def _charts_detalle_html(df: pd.DataFrame, empresa: str | None) -> str:
+    return "\n".join(
+        f"<figure><img src='{_data_uri(fig)}' alt='{titulo}' /><figcaption>{titulo}</figcaption></figure>"
+        for titulo, fig in _chart_items_detalle(df, empresa)
+    )
+
+
+def build_detalle_html(state, empresa: str | None = None, periodos: list[str] | None = None) -> str:
+    """Reporte detallado HTML con la ficha completa por empresa y bimestres."""
+    p = perfil(state, empresa, periodos)
+    df = filter_data(state.kpis, empresa, periodos)
+
+    subtitulo = f"Empresa: {empresa}" if empresa else "Todas las empresas"
+    pills = "".join(f"<span class='pill'>{x}</span>" for x in periodos) if periodos else ""
+    pills += "<span class='pill'>Todos los bimestres</span>" if not periodos else ""
+    pills += f"<span class='pill'>{p['registros']} registros</span>"
+
+    kpi_html = "\n".join(
+        f"<tr><td>{k}</td><td class='v'>{v}</td></tr>" for k, v in kpi_rows(df, empresa)
+    )
+
+    plantilla = _TEMPLATE_DETALLE.read_text(encoding="utf-8")
+    return (
+        plantilla
+        .replace("{{TITULO}}", config.APP_NAME)
+        .replace("{{SUBTITULO}}", subtitulo)
+        .replace("{{FECHA}}", dt.date.today().strftime("%d/%m/%Y"))
+        .replace("{{FILTROS}}", pills)
+        .replace("{{KPI_ROWS}}", kpi_html)
+        .replace("{{CHARTS}}", _charts_detalle_html(df, empresa))
+        .replace("{{SECCIONES}}", _secciones_html(p))
+    )
+
+
+def _pdf_filas_seccion(sec: dict) -> list[list[str]]:
+    filas: list[list[str]] = []
+    for fila in sec["filas"]:
+        etiqueta = fila["etiqueta"]
+        if fila.get("tipo") == "desglose":
+            filas.append([f"• {etiqueta}", "", ""])
+            for d in fila.get("desglose") or []:
+                valor = d.get("valor")
+                pct = d.get("pct")
+                if isinstance(valor, str):
+                    texto = valor + (f" ({float(pct):.0f}% talla)" if pct is not None else "")
+                elif valor is None:
+                    texto = "—"
+                else:
+                    texto = f"{int(valor):,}" + (f" ({float(pct):,.1f}%)" if pct is not None else "")
+                filas.append([f"    {d['etiqueta']}", texto, ""])
+        else:
+            filas.append([etiqueta, _fmt_celda(fila), _fmt_ref(fila) or "—"])
+    return filas
+
+
+def build_detalle_pdf(state, empresa: str | None = None, periodos: list[str] | None = None) -> bytes:
+    """Reporte detallado en PDF con la ficha completa por empresa y bimestres."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    p = perfil(state, empresa, periodos)
+    df = filter_data(state.kpis, empresa, periodos)
+
+    subtitulo = f"Empresa: {empresa}" if empresa else "Todas las empresas"
+    filtros = ", ".join(periodos) if periodos else "Todos los bimestres"
+    fecha = dt.date.today().strftime("%d/%m/%Y")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, topMargin=16 * mm, bottomMargin=16 * mm,
+        leftMargin=16 * mm, rightMargin=16 * mm, title="Reporte Detallado SCORE",
+    )
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Title"], fontSize=19, leading=23, textColor=colors.white)
+    sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9.5, leading=13, textColor=colors.HexColor("#cbd5e1"))
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=13, leading=16,
+                        textColor=colors.HexColor("#0f172a"), spaceBefore=10, spaceAfter=6)
+    cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=9, leading=12)
+    cell_right = ParagraphStyle("cellRight", parent=cell, alignment=2)
+
+    story: list = []
+
+    header = Table(
+        [
+            [Paragraph(config.APP_NAME, h1)],
+            [Paragraph(f"{subtitulo} · {fecha}", sub)],
+            [Paragraph(f"Filtros: {filtros} · {p['registros']} registros · Talla: {p['talla']}", sub)],
+        ],
+        colWidths=[178 * mm],
+    )
+    header.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#0f172a")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 14),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 7 * mm))
+
+    # Indicadores clave.
+    story.append(Paragraph("Indicadores clave", h2))
+    kpi = Table(
+        [[Paragraph(f"<b>{k}</b>", cell), Paragraph(v, cell_right)] for k, v in kpi_rows(df, empresa)],
+        colWidths=[110 * mm, 68 * mm],
+    )
+    kpi.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#e2e8f0")),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f8fafc")),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(kpi)
+    story.append(Spacer(1, 5 * mm))
+
+    # Gráficas (2 columnas).
+    story.append(Paragraph("Gráficas del análisis", h2))
+    img_w = 86 * mm
+    img_h = img_w / (6.4 / 3.6)
+    images = [Image(io.BytesIO(data), width=img_w, height=img_h)
+              for _, data in [(t, _png_bytes(f)) for t, f in _chart_items_detalle(df, empresa)]]
+    cells = []
+    for i in range(0, len(images), 2):
+        row = images[i:i + 2]
+        while len(row) < 2:
+            row.append("")
+        cells.append(row)
+    chart_table = Table(cells, colWidths=[img_w, img_w])
+    chart_table.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(chart_table)
+    story.append(Spacer(1, 4 * mm))
+
+    # Ficha detallada por secciones.
+    for sec in p["secciones"]:
+        story.append(Paragraph(sec["titulo"], h2))
+        tabla = Table([["Indicador", "Valor", "Referencia (talla)"]] + _pdf_filas_seccion(sec),
+                      colWidths=[88 * mm, 50 * mm, 40 * mm], repeatRows=1)
+        tabla.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#e2e8f0")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(tabla)
+        story.append(Spacer(1, 3 * mm))
 
     doc.build(story)
     return buf.getvalue()

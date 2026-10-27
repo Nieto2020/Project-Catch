@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Text, Title } from "@tremor/react";
 import {
   getReportOpciones,
+  reportDetalleDownloadUrl,
+  reportDetallePdfUrl,
+  reportDetalleUrl,
   reportDownloadUrl,
   reportPdfUrl,
   reportUrl,
@@ -13,6 +16,7 @@ export default function Reportes() {
   const [opciones, setOpciones] = useState<ReportOpciones | null>(null);
   const [empresa, setEmpresa] = useState<string>("");
   const [periodos, setPeriodos] = useState<string[]>([]);
+  const [tipo, setTipo] = useState<"ejecutivo" | "detallado">("ejecutivo");
   const [url, setUrl] = useState<string>("");
 
   useEffect(() => {
@@ -37,14 +41,22 @@ export default function Reportes() {
     setPeriodos(todosSeleccionados ? [] : [...opciones.periodos]);
   };
 
+  const urlBase = (emp?: string, per?: string[]) =>
+    tipo === "detallado"
+      ? reportDetalleUrl(emp, per)
+      : reportUrl(emp, per);
+
   const generar = () => {
-    setUrl(reportUrl(empresa || undefined, periodos.length ? periodos : undefined));
+    setUrl(urlBase(empresa || undefined, periodos.length ? periodos : undefined));
   };
 
   const descargar = () => {
     const a = document.createElement("a");
-    a.href = reportDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined);
-    a.download = "reporte_score.html";
+    a.href =
+      tipo === "detallado"
+        ? reportDetalleDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined)
+        : reportDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined);
+    a.download = tipo === "detallado" ? "reporte_detallado.html" : "reporte_score.html";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -52,22 +64,25 @@ export default function Reportes() {
 
   const descargarPdf = () => {
     const a = document.createElement("a");
-    a.href = reportPdfUrl(empresa || undefined, periodos.length ? periodos : undefined);
-    a.download = "reporte_score.pdf";
+    a.href =
+      tipo === "detallado"
+        ? reportDetallePdfUrl(empresa || undefined, periodos.length ? periodos : undefined)
+        : reportPdfUrl(empresa || undefined, periodos.length ? periodos : undefined);
+    a.download = tipo === "detallado" ? "reporte_detallado.pdf" : "reporte_score.pdf";
     document.body.appendChild(a);
     a.click();
     a.remove();
   };
 
   const abrirPestana = () => {
-    window.open(reportUrl(empresa || undefined, periodos.length ? periodos : undefined), "_blank");
+    window.open(urlBase(empresa || undefined, periodos.length ? periodos : undefined), "_blank");
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Generación de Reportes"
-        subtitle="Reportes ejecutivos con gráficas, tomados directamente del dataset. Elige la empresa y los bimestres que deseas incluir."
+        subtitle="Elige la empresa y los bimestres. El reporte ejecutivo resume la cohorte; el detallado despliega la ficha completa de la empresa con la referencia de su talla."
         icon="📄"
       />
 
@@ -76,6 +91,34 @@ export default function Reportes() {
           <Title>Filtros del reporte</Title>
 
           <div className="mt-4 space-y-5">
+            <div>
+              <span className="mb-1 block text-sm font-medium text-slate-700">Tipo de reporte</span>
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-brand-200 bg-brand-50/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setTipo("ejecutivo")}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    tipo === "ejecutivo"
+                      ? "bg-white text-brand-700 shadow-sm ring-1 ring-brand-200"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Ejecutivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipo("detallado")}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    tipo === "detallado"
+                      ? "bg-white text-brand-700 shadow-sm ring-1 ring-brand-200"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Detallado
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Empresa</label>
               <select

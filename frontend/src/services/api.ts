@@ -136,3 +136,27 @@ export function reportPdfUrl(empresa?: string, periodos?: string[]): string {
   const qs = params.toString();
   return `${BASE_URL}/api/report/pdf${qs ? `?${qs}` : ""}`;
 }
+
+export function reportDetalleUrl(empresa?: string, periodos?: string[]): string {
+  const params = new URLSearchParams();
+  if (empresa) params.set("empresa", empresa);
+  if (periodos && periodos.length > 0) params.set("periodos", periodos.join(","));
+  const qs = params.toString();
+  return `${BASE_URL}/api/report/detalle${qs ? `?${qs}` : ""}`;
+}
+
+export function reportDetalleDownloadUrl(empresa?: string, periodos?: string[]): string {
+  const params = new URLSearchParams();
+  if (empresa) params.set("empresa", empresa);
+  if (periodos && periodos.length > 0) params.set("periodos", periodos.join(","));
+  const qs = params.toString();
+  return `${BASE_URL}/api/report/detalle/descargar${qs ? `?${qs}` : ""}`;
+}
+
+export function reportDetallePdfUrl(empresa?: string, periodos?: string[]): string {
+  const params = new URLSearchParams();
+  if (empresa) params.set("empresa", empresa);
+  if (periodos && periodos.length > 0) params.set("periodos", periodos.join(","));
+  const qs = params.toString();
+  return `${BASE_URL}/api/report/detalle/pdf${qs ? `?${qs}` : ""}`;
+}

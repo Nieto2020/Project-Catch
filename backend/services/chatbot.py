@@ -10,6 +10,7 @@ import pandas as pd
 
 from ..core import config, prompts
 from .barometro import add_scores, global_index
+from .detalle import ficha_text
 from .utils import jsonable
 
 # Se cuelga del logger de uvicorn para que los tiempos salgan en la terminal.
@@ -23,6 +24,28 @@ def _norm(text: str) -> str:
     for a, b in replacements.items():
         t = t.replace(a, b)
     return t
+
+
+def _empresa_mencionada(state, question: str) -> str | None:
+    """Nombre de empresa si la pregunta la menciona (COMPAÑÍA 10, empresa 10, la 10...)."""
+    q = _norm(question)
+    if not q:
+        return None
+    empresas = [(str(e), _norm(str(e))) for e in state.kpis["empresa"].dropna().unique()]
+    # De mayor a menor nombre para que "compania 10" se evalúe antes que "compania 1".
+    for empresa, nombre in sorted(empresas, key=lambda t: -len(t[1])):
+        numero = nombre.split()[-1] if nombre.split() else ""
+        if not numero.isdigit():
+            continue
+        patrones = [
+            rf"\b{re.escape(nombre)}\b",
+            rf"\bempresa\s+{numero}\b",
+            rf"\bcompania\s+{numero}\b",
+            rf"\bla\s+{numero}\b",
+        ]
+        if any(re.search(p, q) for p in patrones):
+            return empresa
+    return None
 
 
 # Único motor del chat: el agente LLM.
@@ -111,6 +134,26 @@ def _respuesta_respaldo(state, question: str, causa: str) -> dict:
     cubierta, el resumen del dataset: el chat nunca queda sin respuesta.
     """
     motivo = f"respaldo local — {causa}"
+
+    # Si la pregunta menciona una empresa concreta, su ficha completa responde
+    # mejor que cualquier respuesta genérica y evita iteraciones.
+    try:
+        empresa = _empresa_mencionada(state, question)
+    except Exception:  # noqa: BLE001
+        empresa = None
+    if empresa:
+        try:
+            ficha = ficha_text(state, empresa)
+            return {
+                "answer": (
+                    f"Ficha detallada de {empresa} (el modelo no está disponible ahora — {causa}):\n\n{ficha}"
+                ),
+                "engine": MODE_LLM,
+                "motivo": f"{motivo} — ficha de empresa",
+            }
+        except Exception:  # noqa: BLE001
+            logger.warning("no se pudo construir la ficha de %s", empresa, exc_info=True)
+
     local = None
     try:
         local = _local_answer(state, question)
@@ -258,6 +301,17 @@ def _llm_query(state, question: str, contexto: str | None = None) -> str:
 
     resumen = _build_summary(state)
 
+    # Si la pregunta menciona una empresa, se adjunta su ficha completa para
+    # que el modelo responda con todo a la mano (una sola llamada, sin iterar).
+    empresa = None
+    ficha = None
+    try:
+        empresa = _empresa_mencionada(state, question)
+        if empresa:
+            ficha = ficha_text(state, empresa)
+    except Exception:  # noqa: BLE001
+        logger.warning("no se pudo preparar la ficha de empresa", exc_info=True)
+
     llm_kwargs = {
         "model": config.OPENAI_MODEL,
         "temperature": 0,
@@ -273,7 +327,14 @@ def _llm_query(state, question: str, contexto: str | None = None) -> str:
 
     llm = ChatOpenAI(**llm_kwargs)
 
-    texto = f"{resumen}\n\n"
+    texto = ""
+    if ficha:
+        texto += (
+            f"FICHA DETALLADA de la empresa mencionada ({empresa}). "
+            "Úsala como fuente principal para responder sobre esa empresa:\n"
+            f"{ficha}\n\n"
+        )
+    texto += f"RESUMEN general de la cohorte (para comparar contra el promedio de su talla):\n{resumen}\n\n"
     if contexto:
         texto += f"CONTEXTO seleccionado por el usuario:\n{contexto}\n\n"
     texto += f"Pregunta del usuario: {question}"
