@@ -41,7 +41,10 @@ function contextoDeFila(e: EmpresaScore): string {
     `Empresa: ${e.empresa}`,
     `Talla: ${e.talla}`,
     `Bimestre: ${e.periodo}`,
-    `Score de competitividad: ${e.score_competitividad.toFixed(1)}/100`,
+    `Índice SCORE: ${e.score_competitividad.toFixed(1)}/100` +
+      (e.delta_talla != null
+        ? ` (${e.delta_talla > 0 ? "+" : ""}${e.delta_talla.toFixed(1)} pts vs la mediana de su talla)`
+        : ""),
     `Headcount: ${e.headcount?.toLocaleString("es-MX") ?? "—"}`,
     `Salario medio operativo: ${fmtMoney(e.salario_medio ?? 0)} MXN/día`,
     `Rotación bimestral: ${e.rotacion_bimestral_pct?.toFixed(2) ?? "—"}%`,
@@ -55,7 +58,51 @@ function contextoDeFila(e: EmpresaScore): string {
   ].join("\n");
 }
 
+const fmtDeltaScore = (v: number | null | undefined) => {
+  if (v == null) return "—";
+  const signo = v > 0 ? "+" : "";
+  return `${signo}${v.toFixed(1)} pts`;
+};
+
 const TALLAS = ["Micro", "Pequeña", "Mediana", "Grande"];
+
+/** Esqueleto de carga: el pitch nunca debe mostrar una pantalla vacía. */
+function CargandoBarometro() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Barómetro Global de Competitividad"
+        subtitle="Cargando indicadores del dataset…"
+        icon="⚖️"
+      />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Card key={i}>
+            <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+            <div className="mt-3 h-7 w-20 animate-pulse rounded bg-slate-200" />
+            <div className="mt-3 h-3 w-28 animate-pulse rounded bg-slate-100" />
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {[0, 1].map((i) => (
+          <Card key={i}>
+            <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+            <div className="mt-4 h-52 animate-pulse rounded-xl bg-slate-100" />
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+        <div className="mt-4 space-y-2">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-8 animate-pulse rounded bg-slate-100" />
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 const fmtVariable = (v: number | null, unidad: string) => {
   if (v == null) return "—";
@@ -382,11 +429,26 @@ export default function BarometroGlobal() {
       }
       out = Array.from(best.values());
     }
-    return out;
+    // Agrupa por talla para que el ranking se lea de un vistazo.
+    return [...out].sort(
+      (a, b) =>
+        TALLAS.indexOf(a.talla) - TALLAS.indexOf(b.talla) ||
+        b.score_competitividad - a.score_competitividad,
+    );
   }, [empresas, periodo, talla]);
 
+  // Posición dentro de cada talla: el ranking compara pares del mismo tamaño.
+  const posiciones = useMemo(() => {
+    const contador = new Map<string, number>();
+    return filtradas.map((e) => {
+      const n = (contador.get(e.talla) ?? 0) + 1;
+      contador.set(e.talla, n);
+      return n;
+    });
+  }, [filtradas]);
+
   if (loading && !barometro) {
-    return <div className="py-20 text-center text-slate-500">Cargando barómetro…</div>;
+    return <CargandoBarometro />;
   }
 
   if (error && !barometro) {
@@ -397,6 +459,13 @@ export default function BarometroGlobal() {
           Ejecuta <code className="rounded bg-slate-200 px-1">.\demo.ps1</code> o el backend en{" "}
           <code className="rounded bg-slate-200 px-1">127.0.0.1:8000</code>.
         </p>
+        <button
+          type="button"
+          onClick={() => loadHome()}
+          className="mt-4 rounded-xl border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:bg-brand-50"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }
@@ -416,8 +485,13 @@ export default function BarometroGlobal() {
       {/* Índice global + KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card decoration="top" decorationColor="blue">
-          <Text>Índice global</Text>
-          <Metric>{gi.score.toFixed(1)}</Metric>
+          <Text>Índice SCORE</Text>
+          <div className="flex items-end gap-2">
+            <Metric>{gi.score.toFixed(1)}</Metric>
+            <Badge color={scoreColor(gi.score)} className="mb-1">
+              {barometro.lectura.banda}
+            </Badge>
+          </div>
           <Text className="mt-1">de 100</Text>
         </Card>
         <Card decoration="top" decorationColor="sky">
@@ -436,6 +510,17 @@ export default function BarometroGlobal() {
           <Text className="mt-1">faltas: {fmtInt(kpis.faltas_por_100_promedio)}/100</Text>
         </Card>
       </div>
+
+      {/* Lectura del índice: el número explicado en una línea */}
+      <Card className="border-l-4 border-l-brand-600">
+        <div className="space-y-1">
+          <Text className="text-base font-semibold text-brand-900">
+            {barometro.lectura.titulo}
+          </Text>
+          <Text>{barometro.lectura.comparacion}</Text>
+          <Text className="text-slate-600">{barometro.lectura.palanca}</Text>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Desglose por dimensión */}
@@ -482,8 +567,13 @@ export default function BarometroGlobal() {
 
       {/* Ranking */}
       <Card>
-        <div className="flex items-center justify-between gap-3">
-          <Title>Ranking por talla de empresa</Title>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <Title>Ranking por talla de empresa</Title>
+            <Text className="mt-1">
+              Cada empresa se compara con la mediana de su propia talla en el mismo bimestre.
+            </Text>
+          </div>
           <div className="flex gap-2">
             <select
               value={talla}
@@ -518,14 +608,13 @@ export default function BarometroGlobal() {
         <Table className="mt-4">
           <TableHead>
             <TableRow>
-              <TableHeaderCell>#</TableHeaderCell>
+              <TableHeaderCell># talla</TableHeaderCell>
               <TableHeaderCell>Empresa</TableHeaderCell>
               <TableHeaderCell>Talla</TableHeaderCell>
-              <TableHeaderCell>Periodo</TableHeaderCell>
-              <TableHeaderCell>Score</TableHeaderCell>
+              <TableHeaderCell>Índice SCORE</TableHeaderCell>
+              <TableHeaderCell>vs. su talla</TableHeaderCell>
               <TableHeaderCell>Salario medio</TableHeaderCell>
               <TableHeaderCell>Rotación</TableHeaderCell>
-              <TableHeaderCell>Headcount</TableHeaderCell>
               <TableHeaderCell>
                 <span className="sr-only">Contexto con IA</span>
               </TableHeaderCell>
@@ -534,22 +623,36 @@ export default function BarometroGlobal() {
           <TableBody>
             {filtradas.slice(0, 10).map((e, i) => (
               <TableRow key={`${e.periodo}-${e.empresa}`}>
-                <TableCell>{i + 1}</TableCell>
-                <TableCell className="font-medium">{e.empresa}</TableCell>
+                <TableCell>{posiciones[i]}</TableCell>
+                <TableCell>
+                  <span className="font-medium">{e.empresa}</span>
+                  <span className="mt-0.5 block text-[11px] text-slate-400">
+                    {e.periodo} · {e.headcount?.toLocaleString("es-MX")} empleados
+                  </span>
+                </TableCell>
                 <TableCell>
                   <Badge color="blue" size="sm">
                     {e.talla}
                   </Badge>
                 </TableCell>
-                <TableCell>{e.periodo}</TableCell>
                 <TableCell>
                   <Badge color={scoreColor(e.score_competitividad)}>
                     {e.score_competitividad.toFixed(1)}
                   </Badge>
                 </TableCell>
+                <TableCell
+                  className={
+                    (e.delta_talla ?? 0) > 0
+                      ? "font-medium text-brand-700"
+                      : (e.delta_talla ?? 0) < 0
+                        ? "font-medium text-rose-600"
+                        : "text-slate-500"
+                  }
+                >
+                  {fmtDeltaScore(e.delta_talla)}
+                </TableCell>
                 <TableCell>{fmtMoney(e.salario_medio ?? 0)}</TableCell>
                 <TableCell>{e.rotacion_bimestral_pct?.toFixed(2)}%</TableCell>
-                <TableCell>{e.headcount?.toLocaleString("es-MX")}</TableCell>
                 <TableCell className="text-right">
                   <button
                     type="button"

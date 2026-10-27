@@ -37,8 +37,18 @@ export interface TopEmpresa {
   headcount: number;
 }
 
+export interface LecturaBarometro {
+  banda: string;
+  titulo: string;
+  comparacion: string;
+  palanca: string;
+  dimension_debil: string;
+  dimension_fuerte: string;
+}
+
 export interface BarometroResumen {
   global: GlobalIndex;
+  lectura: LecturaBarometro;
   distribucion: { min: number; promedio: number; mediana: number; max: number };
   tendencia: { periodo: string; periodo_num: number; score_promedio: number }[];
   top5: TopEmpresa[];
@@ -50,6 +60,10 @@ export interface EmpresaScore {
   empresa: string;
   talla: string;
   score_competitividad: number;
+  /** Mediana del índice en su talla y bimestre (punto de referencia). */
+  mediana_talla: number | null;
+  /** Diferencia en puntos contra esa mediana. */
+  delta_talla: number | null;
   sub_salario: number;
   sub_retencion: number;
   sub_ausentismo: number;

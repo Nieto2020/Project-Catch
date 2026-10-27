@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from ..core import config  # noqa: E402
-from .barometro import add_scores, global_index  # noqa: E402
+from .barometro import DIM_LABELS, add_scores, banda_de, global_index  # noqa: E402
 from .detalle import perfil  # noqa: E402
 from .utils import jsonable  # noqa: E402
 
@@ -94,6 +94,55 @@ def _mean(series: pd.Series) -> float | None:
     return float(s.mean()) if not s.empty else None
 
 
+# Acción sugerida por dimensión, para el resumen ejecutivo del reporte.
+ACCIONES = {
+    "salario": "revisar la banda salarial frente a la meta de 500 MXN/día",
+    "retencion": "atacar las causas de rotación (renuncias voluntarias y abandono)",
+    "ausentismo": "diagnosticar las causas de faltas y reforzar la política de asistencia",
+    "capacitacion": "elevar las horas de capacitación por empleado hacia 4 h",
+    "equilibrio": "equilibrar la composición de género hacia 50/50",
+}
+
+
+def resumen_ejecutivo(df: pd.DataFrame, empresa: str | None) -> list[tuple[str, str]]:
+    """Tres viñetas para leer el reporte sin interpretar las gráficas."""
+    gi = global_index(df)
+    dims = gi["dimensiones"]
+    mejor = max(dims, key=lambda d: d["score"])
+    peores = sorted(dims, key=lambda d: d["score"])[:2]
+    bimestres = int(df["periodo"].nunique())
+    sujeto = empresa or f"La cohorte de {df['empresa'].nunique()} empresas"
+
+    que_vemos = (
+        f"{sujeto} registra un Índice SCORE de {gi['score']:.1f}/100 ({banda_de(gi['score'])}) "
+        f"en {bimestres} bimestre{'s' if bimestres != 1 else ''}, con salario medio operativo de "
+        f"{_money(_med(df['salario_medio']))} MXN/día y rotación bimestral de "
+        f"{_fmt(_mean(df['tasa_bajas_bimestral_pct']))}%."
+    )
+    que_significa = (
+        f"Su mejor atributo es {DIM_LABELS.get(mejor['clave'], mejor['clave'])} "
+        f"({mejor['score']:.0f}/100) y su mayor brecha está en "
+        f"{DIM_LABELS.get(peores[0]['clave'], peores[0]['clave'])} "
+        f"({peores[0]['score']:.0f}/100): ahí se concentra el margen de mejora frente a la meta."
+    )
+    que_hacer = (
+        "Priorizar "
+        + " y ".join(
+            f"{DIM_LABELS.get(d['clave'], d['clave'])} ({d['score']:.0f}/100, "
+            f"peso {round(d['peso'] * 100)}%)"
+            for d in peores
+        )
+        + f": {ACCIONES[peores[0]['clave']]}; después, {ACCIONES[peores[1]['clave']]}."
+    )
+    return [("Qué se observa", que_vemos), ("Qué significa", que_significa), ("Qué hacer", que_hacer)]
+
+
+def _resumen_html(items: list[tuple[str, str]]) -> str:
+    return "".join(
+        f"<li><b>{etiqueta}:</b> {texto}</li>" for etiqueta, texto in items
+    )
+
+
 # ---------------------------------------------------------------------------
 # Gráficas (base64 para incrustar en HTML)
 # ---------------------------------------------------------------------------
@@ -109,14 +158,14 @@ def _data_uri(fig) -> str:
 
 
 def _estilo(ax, titulo: str) -> None:
-    ax.set_title(titulo, fontsize=13, fontweight="bold", color="#0f172a", pad=10, loc="left")
-    ax.tick_params(colors="#334155", labelsize=10)
+    ax.set_title(titulo, fontsize=15, fontweight="bold", color="#0f172a", pad=12, loc="left")
+    ax.tick_params(colors="#334155", labelsize=11)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
 
 
 def _figure():
-    fig = plt.figure(figsize=(6.4, 3.6), dpi=110)
+    fig = plt.figure(figsize=(7.0, 3.9), dpi=120)
     fig.patch.set_facecolor("white")
     return fig
 
@@ -130,7 +179,7 @@ def _periodo_eje(periodo: str) -> str:
 def _eje_periodos(ax, g: pd.DataFrame) -> None:
     """Coloca un bimestre por marca, sin encimarlos, en orden cronológico."""
     ax.set_xticks(g["periodo_num"].tolist())
-    ax.set_xticklabels([_periodo_eje(p) for p in g["periodo"]], fontsize=9)
+    ax.set_xticklabels([_periodo_eje(p) for p in g["periodo"]], fontsize=10)
 
 
 def _chart_salario(df: pd.DataFrame) -> str:
@@ -144,14 +193,14 @@ def _chart_salario(df: pd.DataFrame) -> str:
             .sort_values("periodo_num")
         )
         ax.plot(g["periodo_num"], g["salario_medio"], marker="o", linewidth=2.5, color=PALETA["cyan"], markersize=7)
-        ax.set_ylabel("MXN/día", fontsize=10, color="#334155")
+        ax.set_ylabel("MXN/día", fontsize=11, color="#334155")
         _estilo(ax, "Salario medio operativo por bimestre")
         _eje_periodos(ax, g)
     else:
         vals = [_med(df[c]) for c in SALARY_COLS]
         labels = ["Inicial", "Inter. bajo", "Inter. alto", "Máximo"]
         ax.bar(labels, [v or 0 for v in vals], color=PALETA["azul"], width=0.55)
-        ax.set_ylabel("MXN/día", fontsize=10, color="#334155")
+        ax.set_ylabel("MXN/día", fontsize=11, color="#334155")
         _estilo(ax, "Niveles salariales del personal operativo (mediana)")
     return fig
 
@@ -168,7 +217,7 @@ def _chart_rotacion(df: pd.DataFrame) -> str:
         )
         ax.plot(g["periodo_num"], g["rot"], marker="o", linewidth=2.5, color=PALETA["rosa"], markersize=7, label="Rotación %")
         ax.plot(g["periodo_num"], g["faltas"], marker="s", linewidth=2.5, color=PALETA["ambar"], markersize=7, label="Faltas / 100")
-        ax.legend(fontsize=10, frameon=False)
+        ax.legend(fontsize=11, frameon=False)
         _estilo(ax, "Rotación y ausentismo por bimestre")
         _eje_periodos(ax, g)
     else:
@@ -215,7 +264,7 @@ def _genero_split(df: pd.DataFrame) -> tuple[float, float] | None:
 def _chart_genero(df: pd.DataFrame) -> str:
     fig = _figure()
     ax = fig.add_subplot(111)
-    ax.set_title("Composición de género (mediana)", fontsize=13, fontweight="bold", color="#0f172a", pad=10)
+    ax.set_title("Composición de género (mediana)", fontsize=15, fontweight="bold", color="#0f172a", pad=12)
     split = _genero_split(df)
     if split is None:
         ax.text(0.5, 0.5, "Sin datos de género", ha="center", va="center", fontsize=14, color="#94a3b8")
@@ -225,7 +274,7 @@ def _chart_genero(df: pd.DataFrame) -> str:
     ax.pie(
         [mujeres, hombres], labels=["Mujeres", "Hombres"], autopct="%1.0f%%",
         colors=[PALETA["violeta"], PALETA["cyan"]], startangle=90,
-        textprops={"fontsize": 11, "color": "#0f172a"},
+        textprops={"fontsize": 12, "color": "#0f172a"},
         wedgeprops={"edgecolor": "white", "linewidth": 2},
     )
     return fig
@@ -250,7 +299,7 @@ def _chart_barometro(df: pd.DataFrame, empresa: str | None) -> str:
     titulo = f"Barómetro: {gi['score']:.1f} / 100" + (f" · {empresa}" if empresa else " · cohorte")
     _estilo(ax, titulo)
     for i, val in enumerate(v):
-        ax.text(val + 1.5, i, f"{val:.0f}", va="center", fontsize=10, color="#334155", fontweight="bold")
+        ax.text(val + 1.5, i, f"{val:.0f}", va="center", fontsize=11, color="#334155", fontweight="bold")
     return fig
 
 
@@ -385,6 +434,7 @@ def build_html(state, empresa: str | None = None, periodos: list[str] | None = N
         .replace("{{SUBTITULO}}", subtitulo)
         .replace("{{FECHA}}", dt.date.today().strftime("%d/%m/%Y"))
         .replace("{{FILTROS}}", pills)
+        .replace("{{RESUMEN}}", _resumen_html(resumen_ejecutivo(df, empresa)))
         .replace("{{KPI_ROWS}}", kpi_html)
         .replace("{{CHARTS}}", _charts_html(df, empresa))
         .replace("{{TABLA_TITULO}}", tabla_titulo)
@@ -457,6 +507,7 @@ def build_pdf(state, empresa: str | None = None, periodos: list[str] | None = No
                         textColor=colors.HexColor("#0f172a"), spaceBefore=10, spaceAfter=6)
     cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=9, leading=12)
     cell_right = ParagraphStyle("cellRight", parent=cell, alignment=2)
+    bullet = ParagraphStyle("bullet", parent=cell, spaceAfter=4)
 
     story: list = []
 
@@ -479,6 +530,12 @@ def build_pdf(state, empresa: str | None = None, periodos: list[str] | None = No
     story.append(header)
     story.append(Spacer(1, 7 * mm))
 
+    # Resumen ejecutivo: qué se observa, qué significa y qué hacer.
+    story.append(Paragraph("Resumen ejecutivo", h2))
+    for etiqueta, texto in resumen_ejecutivo(df, empresa):
+        story.append(Paragraph(f"• <b>{etiqueta}:</b> {texto}", bullet))
+    story.append(Spacer(1, 4 * mm))
+
     # Indicadores clave.
     story.append(Paragraph("Indicadores clave", h2))
     kpi = Table(
@@ -499,7 +556,7 @@ def build_pdf(state, empresa: str | None = None, periodos: list[str] | None = No
     # Gráficas (2x2).
     story.append(Paragraph("Gráficas del análisis", h2))
     img_w = 86 * mm
-    img_h = img_w / (6.4 / 3.6)
+    img_h = img_w / (7.0 / 3.9)
     images = [Image(io.BytesIO(data), width=img_w, height=img_h) for _, data in _charts_bytes(df, empresa)]
     cells = []
     for i in range(0, len(images), 2):
@@ -657,6 +714,7 @@ def build_detalle_html(state, empresa: str | None = None, periodos: list[str] | 
         .replace("{{SUBTITULO}}", subtitulo)
         .replace("{{FECHA}}", dt.date.today().strftime("%d/%m/%Y"))
         .replace("{{FILTROS}}", pills)
+        .replace("{{RESUMEN}}", _resumen_html(resumen_ejecutivo(df, empresa)))
         .replace("{{KPI_ROWS}}", kpi_html)
         .replace("{{CHARTS}}", _charts_detalle_html(df, empresa))
         .replace("{{SECCIONES}}", _secciones_html(p))
@@ -711,6 +769,7 @@ def build_detalle_pdf(state, empresa: str | None = None, periodos: list[str] | N
                         textColor=colors.HexColor("#0f172a"), spaceBefore=10, spaceAfter=6)
     cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=9, leading=12)
     cell_right = ParagraphStyle("cellRight", parent=cell, alignment=2)
+    bullet = ParagraphStyle("bullet", parent=cell, spaceAfter=4)
 
     story: list = []
 
@@ -732,6 +791,12 @@ def build_detalle_pdf(state, empresa: str | None = None, periodos: list[str] | N
     story.append(header)
     story.append(Spacer(1, 7 * mm))
 
+    # Resumen ejecutivo: qué se observa, qué significa y qué hacer.
+    story.append(Paragraph("Resumen ejecutivo", h2))
+    for etiqueta, texto in resumen_ejecutivo(df, empresa):
+        story.append(Paragraph(f"• <b>{etiqueta}:</b> {texto}", bullet))
+    story.append(Spacer(1, 4 * mm))
+
     # Indicadores clave.
     story.append(Paragraph("Indicadores clave", h2))
     kpi = Table(
@@ -752,7 +817,7 @@ def build_detalle_pdf(state, empresa: str | None = None, periodos: list[str] | N
     # Gráficas (2 columnas).
     story.append(Paragraph("Gráficas del análisis", h2))
     img_w = 86 * mm
-    img_h = img_w / (6.4 / 3.6)
+    img_h = img_w / (7.0 / 3.9)
     images = [Image(io.BytesIO(data), width=img_w, height=img_h)
               for _, data in [(t, _png_bytes(f)) for t, f in _chart_items_detalle(df, empresa)]]
     cells = []

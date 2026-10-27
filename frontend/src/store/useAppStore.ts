@@ -66,25 +66,37 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadHome: async () => {
     set({ loading: true, error: null });
-    try {
-      const [kpis, barometro] = await Promise.all([getKpis(), getBarometro()]);
-      set({ kpis, barometro, loading: false });
-    } catch (e) {
-      set({
-        error: e instanceof Error ? e.message : "Error al cargar el barómetro",
-        loading: false,
-      });
+    // El backend puede estar arrancando (demo.ps1): se reintenta antes de rendirse.
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        const [kpis, barometro] = await Promise.all([getKpis(), getBarometro()]);
+        set({ kpis, barometro, loading: false });
+        return;
+      } catch (e) {
+        if (intento < 2) {
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+        set({
+          error: e instanceof Error ? e.message : "Error al cargar el barómetro",
+          loading: false,
+        });
+      }
     }
   },
 
   loadEmpresas: async (periodo) => {
     set({ empresasLoading: true });
-    try {
-      const empresas = await getEmpresas(periodo);
-      set({ empresas, empresasLoading: false });
-    } catch {
-      set({ empresasLoading: false });
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        const empresas = await getEmpresas(periodo);
+        set({ empresas, empresasLoading: false });
+        return;
+      } catch {
+        if (intento < 2) await new Promise((r) => setTimeout(r, 1200));
+      }
     }
+    set({ empresasLoading: false });
   },
 
   // Variables descriptivas que no ponderan el índice (descansos, prestaciones).

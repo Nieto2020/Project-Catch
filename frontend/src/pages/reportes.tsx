@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Card, Text, Title } from "@tremor/react";
 import {
   getReportOpciones,
-  reportDetalleDownloadUrl,
   reportDetallePdfUrl,
   reportDetalleUrl,
-  reportDownloadUrl,
   reportPdfUrl,
   reportUrl,
   type ReportOpciones,
@@ -14,16 +12,31 @@ import PageHeader from "@/components/PageHeader";
 
 export default function Reportes() {
   const [opciones, setOpciones] = useState<ReportOpciones | null>(null);
+  const [cargandoOpciones, setCargandoOpciones] = useState(true);
   const [empresa, setEmpresa] = useState<string>("");
   const [periodos, setPeriodos] = useState<string[]>([]);
   const [tipo, setTipo] = useState<"ejecutivo" | "detallado">("ejecutivo");
   const [url, setUrl] = useState<string>("");
 
-  useEffect(() => {
-    getReportOpciones()
-      .then(setOpciones)
-      .catch(() => setOpciones(null));
+  const cargarOpciones = useCallback(async () => {
+    setCargandoOpciones(true);
+    // El backend puede estar arrancando: se reintenta antes de mostrar el error.
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        setOpciones(await getReportOpciones());
+        setCargandoOpciones(false);
+        return;
+      } catch {
+        if (intento < 2) await new Promise((r) => setTimeout(r, 1200));
+      }
+    }
+    setOpciones(null);
+    setCargandoOpciones(false);
   }, []);
+
+  useEffect(() => {
+    cargarOpciones();
+  }, [cargarOpciones]);
 
   const todosSeleccionados = useMemo(
     () => opciones != null && periodos.length === opciones.periodos.length,
@@ -54,28 +67,12 @@ export default function Reportes() {
     const a = document.createElement("a");
     a.href =
       tipo === "detallado"
-        ? reportDetalleDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined)
-        : reportDownloadUrl(empresa || undefined, periodos.length ? periodos : undefined);
-    a.download = tipo === "detallado" ? "reporte_detallado.html" : "reporte_score.html";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
-  const descargarPdf = () => {
-    const a = document.createElement("a");
-    a.href =
-      tipo === "detallado"
         ? reportDetallePdfUrl(empresa || undefined, periodos.length ? periodos : undefined)
         : reportPdfUrl(empresa || undefined, periodos.length ? periodos : undefined);
     a.download = tipo === "detallado" ? "reporte_detallado.pdf" : "reporte_score.pdf";
     document.body.appendChild(a);
     a.click();
     a.remove();
-  };
-
-  const abrirPestana = () => {
-    window.open(urlBase(empresa || undefined, periodos.length ? periodos : undefined), "_blank");
   };
 
   return (
@@ -161,27 +158,35 @@ export default function Reportes() {
                     {p}
                   </label>
                 ))}
-                {opciones == null && (
-                  <Text className="text-slate-400">No se pudo conectar con la API.</Text>
+                {cargandoOpciones && (
+                  <div className="space-y-2">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <div key={i} className="h-4 animate-pulse rounded bg-slate-200/70" />
+                    ))}
+                  </div>
+                )}
+                {!cargandoOpciones && opciones == null && (
+                  <div className="space-y-2">
+                    <Text className="text-slate-400">No se pudo conectar con la API.</Text>
+                    <button
+                      type="button"
+                      onClick={cargarOpciones}
+                      className="text-xs font-medium text-brand-700 hover:underline"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Button onClick={generar} className="w-full">
-                Generar reporte
+              <Button onClick={descargar} className="w-full">
+                Descargar reporte (PDF)
               </Button>
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={abrirPestana} className="flex-1">
-                  Abrir en pestaña
-                </Button>
-                <Button variant="secondary" onClick={descargar} className="flex-1">
-                  HTML
-                </Button>
-                <Button variant="secondary" onClick={descargarPdf} className="flex-1">
-                  PDF
-                </Button>
-              </div>
+              <Button variant="secondary" onClick={generar} className="w-full">
+                Ver reporte aquí
+              </Button>
             </div>
           </div>
         </Card>
@@ -197,7 +202,7 @@ export default function Reportes() {
               />
             ) : (
               <div className="mt-4 flex h-[75vh] items-center justify-center rounded-xl border border-dashed border-brand-200 bg-brand-50/30 text-slate-400">
-                Configura los filtros y pulsa “Generar reporte”.
+                Configura los filtros y pulsa “Ver reporte aquí”.
               </div>
             )}
           </Card>

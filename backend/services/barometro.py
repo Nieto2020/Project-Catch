@@ -33,6 +33,32 @@ GLOBAL_BENCHMARKS = {
     "equilibrio":    {"peso": 0.10, "meta": 50.0,  "unidad": "% mujeres", "mejor": "centro"},
 }
 
+DIM_LABELS = {
+    "salario": "Salario",
+    "retencion": "Retención",
+    "ausentismo": "Ausentismo",
+    "capacitacion": "Capacitación",
+    "equilibrio": "Equilibrio de género",
+}
+
+# Bandas de lectura del índice, de mayor a menor.
+BANDAS_SCORE = [
+    (80.0, "Destacado"),
+    (60.0, "Alto"),
+    (40.0, "Medio"),
+    (0.0, "Bajo"),
+]
+
+
+def banda_de(score: float | None) -> str:
+    """Etiqueta cualitativa del índice, para que el número se lea solo."""
+    if score is None or pd.isna(score):
+        return "Sin dato"
+    for minimo, etiqueta in BANDAS_SCORE:
+        if float(score) >= minimo:
+            return etiqueta
+    return "Bajo"
+
 
 def _score_vs_meta(valor: float, meta: float, mejor: str) -> float:
     """Convierte una métrica de cohorte a un score 0-100 frente a su meta."""
@@ -130,10 +156,47 @@ def _f(value, digits: int = 1) -> float | None:
     return round(float(value), digits)
 
 
+def _lectura(gi: dict, distribucion: dict) -> dict:
+    """Traduce el índice a una frase interpretable (nivel, contexto y palanca)."""
+    score = float(gi["score"])
+    banda = banda_de(score)
+
+    minimo, mediana, maximo = (
+        distribucion.get("min"), distribucion.get("mediana"), distribucion.get("max"),
+    )
+    if None in (minimo, mediana, maximo):
+        contexto = "Sin empresas de referencia en la selección."
+    else:
+        contexto = (
+            f"Cada empresa se evalúa dentro de su talla: rango {minimo:.1f} – {maximo:.1f} "
+            f"y mediana {mediana:.1f}."
+        )
+
+    dims = gi["dimensiones"]
+    peor = min(dims, key=lambda d: d["score"])
+    mejor = max(dims, key=lambda d: d["score"])
+    palanca = (
+        f"Mayor oportunidad: {DIM_LABELS.get(peor['clave'], peor['clave'])} "
+        f"({peor['score']:.0f}/100, peso {round(peor['peso'] * 100)}%). "
+        f"Mejor atributo: {DIM_LABELS.get(mejor['clave'], mejor['clave'])} "
+        f"({mejor['score']:.0f}/100)."
+    )
+
+    return {
+        "banda": banda,
+        "titulo": f"Índice SCORE {score:.1f} · {banda}",
+        "comparacion": contexto,
+        "palanca": palanca,
+        "dimension_debil": peor["clave"],
+        "dimension_fuerte": mejor["clave"],
+    }
+
+
 def summary(df: pd.DataFrame) -> dict:
     """Resumen del barómetro: distribución, tendencia y top empresas."""
     scored = add_scores(df)
     score = scored["score_competitividad"]
+    gi = global_index(df)
 
     trend = []
     for (periodo, num), g in scored.groupby(["periodo", "periodo_num"], sort=True):
@@ -143,6 +206,13 @@ def summary(df: pd.DataFrame) -> dict:
             "score_promedio": round(float(g["score_competitividad"].mean()), 1),
         })
     trend.sort(key=lambda r: r["periodo_num"])
+
+    distribucion = {
+        "min": _f(score.min(), 1),
+        "promedio": _f(score.mean(), 1),
+        "mediana": _f(score.median(), 1),
+        "max": _f(score.max(), 1),
+    }
 
     top = (
         scored[["periodo", "empresa", "talla", "score_competitividad", "salario_medio",
@@ -164,13 +234,9 @@ def summary(df: pd.DataFrame) -> dict:
     ]
 
     return jsonable({
-        "global": global_index(df),
-        "distribucion": {
-            "min": _f(score.min(), 1),
-            "promedio": _f(score.mean(), 1),
-            "mediana": _f(score.median(), 1),
-            "max": _f(score.max(), 1),
-        },
+        "global": gi,
+        "lectura": _lectura(gi, distribucion),
+        "distribucion": distribucion,
         "tendencia": trend,
         "top5": top_list,
         "dimensiones": {
@@ -189,8 +255,12 @@ def company_scores(df: pd.DataFrame, periodo: str | None = None) -> list[dict]:
     if periodo:
         scored = scored[scored["periodo"] == periodo]
 
+    # Referencia de cada empresa: mediana de su propia talla en el mismo bimestre.
+    scored["mediana_talla"] = scored.groupby(["talla", "periodo"])["score_competitividad"].transform("median")
+    scored["delta_talla"] = scored["score_competitividad"] - scored["mediana_talla"]
+
     cols = [
-        "periodo", "empresa", "talla", "score_competitividad",
+        "periodo", "empresa", "talla", "score_competitividad", "mediana_talla", "delta_talla",
         "sub_salario", "sub_retencion", "sub_ausentismo",
         "sub_capacitacion", "sub_equilibrio",
         "salario_medio", "tasa_bajas_bimestral_pct", "total_headcount",
@@ -207,6 +277,8 @@ def company_scores(df: pd.DataFrame, periodo: str | None = None) -> list[dict]:
             "empresa": r["empresa"],
             "talla": r["talla"],
             "score_competitividad": _f(r["score_competitividad"], 1),
+            "mediana_talla": _f(r["mediana_talla"], 1),
+            "delta_talla": _f(r["delta_talla"], 1),
             "sub_salario": _f(r["sub_salario"], 1),
             "sub_retencion": _f(r["sub_retencion"], 1),
             "sub_ausentismo": _f(r["sub_ausentismo"], 1),
