@@ -10,7 +10,7 @@ import pandas as pd
 
 from ..core import config, prompts
 from .barometro import add_scores, global_index
-from .detalle import ficha_text
+from .detalle import EDAD_BAJAS, MOTIVOS_BAJA, ficha_text
 from .utils import jsonable
 
 # Se cuelga del logger de uvicorn para que los tiempos salgan en la terminal.
@@ -48,6 +48,21 @@ def _empresa_mencionada(state, question: str) -> str | None:
     return None
 
 
+def _ficha_conveniente(question: str) -> bool:
+    """Si conviene adjuntar la ficha completa de la empresa mencionada.
+
+    En preguntas de ranking o comparación entre empresas el resumen ya trae los
+    extremos con su motivo y generación, así que la ficha solo alargaría el
+    prompt sin aportar a la respuesta.
+    """
+    q = _norm(question)
+    return not re.search(
+        r"cual(es)? de las empresas|que empresa|cual es la empresa|"
+        r"ranking|top\s*\d|lista de empresas|empresas con (mayor|menor|mas)",
+        q,
+    )
+
+
 # Único motor del chat: el agente LLM.
 MODE_LLM = "llm"
 
@@ -55,6 +70,11 @@ SUGERENCIAS = (
     "¿Cuántas empresas hay?",
     "¿Cuántos empleados hay en total?",
     "¿Cuál es la rotación bimestral promedio?",
+    "¿Por qué renuncian los trabajadores?",
+    "¿Cuál es la empresa con mayor rotación y por qué?",
+    "¿Qué empresas tienen la rotación más baja?",
+    "¿A qué generación de edad pertenecen los que se dieron de baja?",
+    "¿Cómo se movieron las bajas en cada bimestre?",
     "¿Cuál es el salario inicial promedio del personal operativo?",
     "¿Cuál es el promedio de faltas por cada 100 empleados?",
     "¿Qué proporción de mujeres y hombres hay?",
@@ -141,7 +161,7 @@ def _respuesta_respaldo(state, question: str, causa: str) -> dict:
         empresa = _empresa_mencionada(state, question)
     except Exception:  # noqa: BLE001
         empresa = None
-    if empresa:
+    if empresa and _ficha_conveniente(question):
         try:
             ficha = ficha_text(state, empresa)
             return {
@@ -211,6 +231,149 @@ def _fmt(v, digits: int = 1) -> str:
     return txt.rstrip("0").rstrip(".") if "." in txt else txt
 
 
+# --- Bajas: motivo, impacto por bimestre y generación de edad --------------
+# Los motivos se capturan como conteo; la edad de las bajas viene como
+# proporción de las bajas de cada empresa-bimestre (suma 1 por registro).
+def _bajas_por_motivo(df: pd.DataFrame) -> list[dict]:
+    """Bajas atribuidas a cada motivo y su % de las bajas con motivo declarado."""
+    filas = []
+    for col, etiqueta in MOTIVOS_BAJA.items():
+        if col not in df.columns:
+            continue
+        serie = pd.to_numeric(df[col], errors="coerce").dropna()
+        if serie.empty:
+            continue
+        filas.append({"etiqueta": etiqueta, "bajas": float(serie.sum())})
+    total = sum(fila["bajas"] for fila in filas)
+    for fila in filas:
+        fila["pct"] = fila["bajas"] / total * 100 if total else None
+    filas.sort(key=lambda fila: -fila["bajas"])
+    return filas
+
+
+def _bajas_por_generacion(df: pd.DataFrame) -> list[dict]:
+    """Bajas por generación: proporciones ponderadas por las bajas del registro."""
+    columnas = [col for col in EDAD_BAJAS if col in df.columns]
+    proporcion = df[columnas].apply(pd.to_numeric, errors="coerce")
+    # Algunos registros reparten de más (suman >1): la participación se
+    # normaliza por fila para que el reparto sea comparable entre empresas.
+    suma_fila = proporcion.sum(axis=1, min_count=1)
+    participacion = proporcion.div(suma_fila.where(suma_fila > 0), axis=0)
+    conteos = pd.to_numeric(df["total_bajas"], errors="coerce")
+    filas = []
+    for col in columnas:
+        valor = (participacion[col] * conteos).sum(min_count=1)
+        if pd.isna(valor):
+            continue
+        filas.append({"etiqueta": EDAD_BAJAS[col], "bajas": float(valor)})
+    total = sum(fila["bajas"] for fila in filas)
+    for fila in filas:
+        fila["pct"] = fila["bajas"] / total * 100 if total else None
+    filas.sort(key=lambda fila: -fila["bajas"])
+    return filas
+
+
+def _bajas_por_bimestre(df: pd.DataFrame) -> list[dict]:
+    """Bajas del bimestre y tasa media de rotación, en orden cronológico."""
+    filas = []
+    for (periodo, num), g in df.groupby(["periodo", "periodo_num"], sort=True):
+        bajas = pd.to_numeric(g["total_bajas"], errors="coerce")
+        tasa = pd.to_numeric(g["tasa_bajas_bimestral_pct"], errors="coerce").dropna()
+        filas.append({
+            "periodo": str(periodo),
+            "periodo_num": int(num),
+            "bajas": float(bajas.sum()) if bajas.notna().any() else None,
+            "tasa_media": float(tasa.mean()) if not tasa.empty else None,
+        })
+    filas.sort(key=lambda fila: fila["periodo_num"])
+    return filas
+
+
+# --- Rankings por empresa --------------------------------------------------
+# Métricas comparables: (patrón en la pregunta, columna, etiqueta, decimales, unidad,
+# comparativos (alto, bajo) para redactar la frase).
+METRICAS_RANKING = (
+    (r"rotacion|bajas|renuncia|abandon", "tasa_bajas_bimestral_pct",
+     "rotación bimestral media", 2, "%", ("mayor", "menor")),
+    (r"faltas|ausentismo", "faltas_por_100",
+     "faltas por cada 100 empleados", 1, "", ("más", "menos")),
+    (r"salario|sueldo", "salario_medio",
+     "salario medio", 1, " MXN/día", ("mayor", "menor")),
+    (r"capacitacion", "cap_por_empleado",
+     "horas de capacitación por empleado", 1, " h", ("más", "menos")),
+    (r"headcount|plantilla|empleados|personal", "total_headcount",
+     "headcount", 0, "", ("mayor", "menor")),
+)
+
+
+def _razones_baja(df: pd.DataFrame, empresa: str) -> tuple[dict | None, dict | None]:
+    """Motivo y generación predominantes entre las bajas de una empresa."""
+    sub = df[df["empresa"] == empresa]
+    motivos = [m for m in _bajas_por_motivo(sub) if m["etiqueta"] != "Otro"]
+    generaciones = [g for g in _bajas_por_generacion(sub) if g["etiqueta"] != "No medido"]
+    return (motivos[0] if motivos else None, generaciones[0] if generaciones else None)
+
+
+def _ranking_empresas(df: pd.DataFrame, col: str, ascendente: bool = False,
+                      n: int = 5) -> list[dict]:
+    """Ranking de empresas por la media de una métrica (una fila por empresa).
+
+    La media entre bimestres evita que una empresa quede arriba solo por un
+    bimestre atípico, y permite comparar empresas con distinto número de
+    periodos capturados.
+    """
+    if col not in df.columns:
+        return []
+    agrupado = (
+        df.groupby("empresa")
+        .agg(
+            valor=(col, "mean"),
+            periodos=("periodo", "nunique"),
+            headcount=("total_headcount", "median"),
+            talla=("talla", lambda s: s.mode().iloc[0] if not s.mode().empty else "—"),
+        )
+        .dropna(subset=["valor"])
+        .sort_values("valor", ascending=ascendente)
+        .head(n)
+    )
+
+    filas = []
+    for empresa, r in agrupado.iterrows():
+        fila = {
+            "empresa": str(empresa),
+            "valor": float(r["valor"]),
+            "periodos": int(r["periodos"]),
+            "headcount": float(r["headcount"]) if pd.notna(r["headcount"]) else None,
+            "talla": str(r["talla"]),
+        }
+        if col == "tasa_bajas_bimestral_pct":
+            conteos = pd.to_numeric(df.loc[df["empresa"] == empresa, "total_bajas"], errors="coerce")
+            fila["bajas"] = float(conteos.sum()) if conteos.notna().any() else None
+            fila["motivo"], fila["generacion"] = _razones_baja(df, empresa)
+        filas.append(fila)
+    return filas
+
+
+def _fmt_ranking(filas: list[dict], etiqueta: str, sentido: str, digits: int = 2,
+                 unidad: str = "", referencia: float | None = None) -> str:
+    """Ranking en una línea, con motivo y generación cuando la métrica son bajas."""
+    cabecera = f"Empresas con {sentido} {etiqueta}"
+    if referencia is not None:
+        cabecera += f" (promedio de la cohorte {_fmt(referencia, digits)}{unidad})"
+
+    partes = []
+    for i, fila in enumerate(filas, 1):
+        detalle = f"{i}. {fila['empresa']} ({fila['talla']}): {_fmt(fila['valor'], digits)}{unidad}"
+        if fila.get("bajas") is not None:
+            detalle += f", {_fmt(fila['bajas'], 0)} bajas en {fila['periodos']} bimestres"
+        if fila.get("motivo") and fila["motivo"]["bajas"]:
+            detalle += f", motivo principal {fila['motivo']['etiqueta'].lower()} {_fmt(fila['motivo']['pct'], 0)}%"
+        if fila.get("generacion") and fila["generacion"]["bajas"]:
+            detalle += f", generación {fila['generacion']['etiqueta']} {_fmt(fila['generacion']['pct'], 0)}%"
+        partes.append(detalle)
+    return f"{cabecera}: " + "; ".join(partes) + "."
+
+
 def _build_summary(state) -> str:
     """Resumen compacto del dataset calculado en Python (sin LLM).
 
@@ -255,6 +418,22 @@ def _build_summary(state) -> str:
 
     gi = global_index(df)
 
+    motivos = _bajas_por_motivo(df)
+    generaciones_bajas = _bajas_por_generacion(df)
+    bimestres = _bajas_por_bimestre(df)
+    total_bajas = float(pd.to_numeric(df["total_bajas"], errors="coerce").dropna().sum())
+    peor = max((b for b in bimestres if b["tasa_media"] is not None),
+               key=lambda b: b["tasa_media"], default=None)
+    mayor_rotacion = _ranking_empresas(df, "tasa_bajas_bimestral_pct", n=5)
+    menor_rotacion = _ranking_empresas(df, "tasa_bajas_bimestral_pct", ascendente=True, n=3)
+    rotacion_media = _mean(df["tasa_bajas_bimestral_pct"])
+    linea_mayor = ("- " + _fmt_ranking(mayor_rotacion, "rotación bimestral media", "mayor", 2, "%",
+                                       rotacion_media)
+                   if mayor_rotacion else "- Sin datos de rotación por empresa")
+    linea_menor = ("- " + _fmt_ranking(menor_rotacion, "rotación bimestral media", "menor", 2, "%",
+                                       rotacion_media)
+                   if menor_rotacion else "")
+
     lineas = [
         "RESUMEN DEL DATASET (encuesta bimestral de RH, nivel empresa):",
         f"- Registros empresa-bimestre: {n_registros} · Empresas únicas: {n_empresas} · Bimestres: {n_periodos}",
@@ -264,6 +443,17 @@ def _build_summary(state) -> str:
         f"intermedio alto {_fmt(_med(df['salario_inter_alto']), 2)}, máximo {_fmt(_med(df['salario_maximo']), 2)}",
         f"- Rotación bimestral: promedio {_fmt(_mean(df['tasa_bajas_bimestral_pct']), 2)}% del headcount "
         f"(mediana {_fmt(_med(df['tasa_bajas_bimestral_pct']), 2)}%)",
+        f"- Bajas acumuladas en los {n_periodos} bimestres: {_fmt(total_bajas, 0)}",
+        "- Motivos de baja (% de las bajas con motivo declarado): "
+        + "; ".join(f"{m['etiqueta']} {_fmt(m['pct'], 1)}% ({_fmt(m['bajas'], 0)})" for m in motivos),
+        "- Bajas por generación de edad (ponderadas por bajas): "
+        + "; ".join(f"{g['etiqueta']} {_fmt(g['pct'], 1)}% ({_fmt(g['bajas'], 0)})" for g in generaciones_bajas),
+        "- Bajas por bimestre (bajas · tasa media de rotación): "
+        + "; ".join(f"{b['periodo']} {_fmt(b['bajas'], 0)} · {_fmt(b['tasa_media'], 2)}%" for b in bimestres)
+        + (f". El bimestre con mayor rotación media fue {peor['periodo']} ({_fmt(peor['tasa_media'], 2)}%)"
+           if peor else ""),
+        linea_mayor,
+        linea_menor,
         f"- Faltas: mediana {_fmt(_med(df['faltas_por_100']), 1)} por cada 100 empleados "
         f"(promedio {_fmt(_mean(df['total_faltas']), 0)} faltas por empresa-bimestre)",
         f"- Capacitación: mediana {_fmt(_med(df['hrs_cap_operativos'].fillna(0) + df['hrs_cap_administrativos'].fillna(0)), 0)} horas por empresa-bimestre",
@@ -307,7 +497,7 @@ def _llm_query(state, question: str, contexto: str | None = None) -> str:
     ficha = None
     try:
         empresa = _empresa_mencionada(state, question)
-        if empresa:
+        if empresa and _ficha_conveniente(question):
             ficha = ficha_text(state, empresa)
     except Exception:  # noqa: BLE001
         logger.warning("no se pudo preparar la ficha de empresa", exc_info=True)
@@ -382,6 +572,24 @@ def _local_answer(state, question: str, scored: pd.DataFrame | None = None) -> s
     med = df.median(numeric_only=True)
     mean = df.mean(numeric_only=True)
 
+    # Ranking de empresas: va antes que cualquier media, porque "cuál empresa
+    # tiene el salario/rotación más alta" pide el ranking y no el promedio.
+    if re.search(r"empresa", q) and re.search(
+        r"cual|que empresa|ranking|top|mayor|menor|mas|mejor|peor", q
+    ) and not re.search(r"cuantas empresas|numero de empresas|total de empresas", q):
+        ascendente = bool(re.search(r"menor|menos|mejor|mas baja|mas bajo", q)) and not re.search(
+            r"mayor|mas alta|mas alto|peor", q
+        )
+        for patron, col, etiqueta, digitos, unidad, comparativos in METRICAS_RANKING:
+            if not re.search(patron, q):
+                continue
+            filas = _ranking_empresas(df, col, ascendente=ascendente, n=5)
+            if filas:
+                return _fmt_ranking(
+                    filas, etiqueta, comparativos[1] if ascendente else comparativos[0],
+                    digitos, unidad, float(mean[col]) if col in mean else None,
+                )
+
     # Salarios (antes que headcount: la pregunta suele decir "personal operativo")
     if re.search(r"salario|sueldo", q):
         return (
@@ -389,6 +597,56 @@ def _local_answer(state, question: str, scored: pd.DataFrame | None = None) -> s
             f"intermedio bajo {f(med['salario_inter_bajo'], 2)}, intermedio alto {f(med['salario_inter_alto'], 2)} "
             f"y máximo {f(med['salario_maximo'], 2)} pesos/día."
         )
+
+    # Motivos de baja (antes que "rotación|bajas": la pregunta suele decir "por qué")
+    if re.search(r"motivo|por que|porque|causa|razon|abandon|renunci", q):
+        motivos = _bajas_por_motivo(df)
+        if motivos:
+            total = sum(m["bajas"] for m in motivos)
+            desglose = "; ".join(
+                f"{m['etiqueta'].lower()} {f(m['pct'], 1)}% ({f(m['bajas'], 0)} bajas)"
+                for m in motivos[:5]
+            )
+            principal = motivos[0]
+            return (
+                f"De {f(total, 0)} bajas con motivo declarado en los "
+                f"{df['periodo'].nunique()} bimestres, la principal causa es "
+                f"{principal['etiqueta'].lower()} ({f(principal['pct'], 1)}%, "
+                f"{f(principal['bajas'], 0)} bajas). Desglose: {desglose}."
+            )
+
+    # Generación de edad de los trabajadores que se dieron de baja
+    if re.search(r"generacion|gen z|millennial|baby|rango de edad|edad", q):
+        generaciones = _bajas_por_generacion(df)
+        if generaciones:
+            desglose = "; ".join(
+                f"{g['etiqueta'].lower()} {f(g['pct'], 1)}% ({f(g['bajas'], 0)} bajas)"
+                for g in generaciones
+            )
+            principal = next((g for g in generaciones if g["etiqueta"] != "No medido"), generaciones[0])
+            return (
+                f"La generación más afectada por las bajas es {principal['etiqueta'].lower()} "
+                f"con {f(principal['pct'], 1)}% de las bajas ponderadas. Desglose: {desglose}."
+            )
+
+    # Impacto de las bajas por bimestre
+    if re.search(r"bajas|rotacion|renuncia", q) and re.search(
+        r"bimestre|por periodo|cada periodo|evolucion|tendencia", q
+    ):
+        bimestres = _bajas_por_bimestre(df)
+        if bimestres:
+            detalle = "; ".join(
+                f"{b['periodo']} {f(b['bajas'], 0)} bajas ({f(b['tasa_media'], 2)}%)"
+                for b in bimestres
+            )
+            con_tasa = [b for b in bimestres if b["tasa_media"] is not None]
+            peor = max(con_tasa, key=lambda b: b["tasa_media"]) if con_tasa else None
+            extra = (
+                f" El bimestre más afectado fue {peor['periodo']} "
+                f"({f(peor['bajas'], 0)} bajas, tasa media {f(peor['tasa_media'], 2)}%)."
+                if peor else ""
+            )
+            return f"Bajas por bimestre: {detalle}.{extra}"
 
     # Rotación
     if re.search(r"rotacion|bajas|renuncia", q):

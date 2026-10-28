@@ -109,11 +109,44 @@ en Python (KPIs, medianas, top empresas, barómetro, prestaciones y descansos). 
 hace rápido y confiable, sin iterar sobre el DataFrame. Si se adjunta contexto desde el
 ranking, se incluye en esa misma llamada.
 
+El resumen incluye además el desglose de **bajas** de la base histórica para responder
+por qué se va el personal y a quién afecta más:
+
+- **Motivo de la baja** — renuncia voluntaria, abandono, acumulación de faltas,
+  rescisión, disminución de plazas, jubilación, fallecimiento, incapacidad permanente
+  y otros, con conteo y porcentaje sobre las bajas con motivo declarado.
+- **Impacto por bimestre** — bajas totales y tasa media de rotación de cada uno de los
+  7 bimestres, señalando el más afectado.
+- **Generación de edad de las bajas** — Baby Boomers, Gen X, Millennial 23-30,
+  Millennial 31-37 y Gen Z, ponderando la proporción que reporta cada empresa por sus
+  bajas (además de las bajas no medidas).
+
+Cuando la pregunta menciona una empresa, esos tres desgloses llegan también en su ficha
+detallada, junto con la antigüedad de las bajas.
+
+El resumen incluye además el **ranking de empresas** por rotación media (las 5 con mayor
+y las 3 con menor), cada una con su talla, sus bajas acumuladas, el motivo principal y la
+generación de edad predominante. Con eso el chat responde comparaciones del tipo
+"¿cuál de las empresas tiene mayor rotación y por qué?" sin necesitar la ficha de ninguna
+empresa.
+
+### Cuándo se adjunta la ficha de una empresa
+
+La ficha completa se adjunta solo cuando aporta: la pregunta menciona una empresa y va
+dirigida a ella ("¿cómo está la compañía 15?", "¿por qué renuncian en la 24?"). En
+preguntas de ranking o comparación entre empresas ("cuál tiene mayor rotación", "la 15 o
+la 24", "top 5") no se adjunta: el resumen ya trae el ranking con su motivo y generación,
+y así el prompt queda a la mitad de tamaño y la respuesta llega antes.
+
 No hay agente con pasos ni límite de iteraciones: si el modelo no está configurado,
 falla, se agota el tiempo o devuelve una respuesta vacía, el chat responde con el
 cálculo local del dataset (o con el resumen de indicadores si la pregunta no está
 cubierta) y lo indica en el globo de la respuesta, de modo que el asistente nunca
 queda sin contestar.
+
+Las **respuestas rápidas** viven en un panel plegable sobre la conversación: el
+encabezado muestra cuántas hay y un clic lo abre o lo cierra (empieza cerrado para no
+empujar el chat ni el campo de escritura fuera de la vista).
 
 ### Contexto con IA desde el ranking
 

@@ -227,19 +227,55 @@ def _fila(etiqueta: str, valor, tipo: str = "num", unidad: str = "", cohorte=Non
     }
 
 
-def _desglose_sumas(df: pd.DataFrame, columnas: dict[str, str], total_col: str) -> list[dict]:
+def _desglose_sumas(df: pd.DataFrame, columnas: dict[str, str], total_col: str,
+                    normalizar: bool = False) -> list[dict]:
+    """Desglose de columnas con conteos propios.
+
+    ``normalizar`` calcula el porcentaje sobre la suma de las categorías, útil
+    cuando la cobertura del desglose no coincide con la del total declarado.
+    """
     total = _sum(df[total_col])
     filas = []
     for col, etiqueta in columnas.items():
         if col not in df.columns:
             continue
-        valor = _sum(df[col])
         filas.append({
             "etiqueta": etiqueta,
-            "valor": _num(valor, 0),
+            "valor": _num(_sum(df[col]), 0),
             "unidad": "bajas" if total_col == "total_bajas" else "casos",
-            "pct": _pct(valor, total),
         })
+    if normalizar:
+        total = sum(fila["valor"] or 0 for fila in filas) or None
+    for fila in filas:
+        fila["pct"] = _pct(fila["valor"], total)
+    filas.sort(key=lambda r: (r["valor"] is None, -(r["valor"] or 0)))
+    return filas
+
+
+def _desglose_proporciones(df: pd.DataFrame, columnas: dict[str, str], total_col: str) -> list[dict]:
+    """Desglose de columnas capturadas como proporción (suman 1 por registro).
+
+    Antigüedad y edad de las bajas vienen como proporción de las bajas de cada
+    empresa-bimestre, no como conteos: se normaliza la proporción por registro
+    y se pondera por sus bajas para estimar cuántas bajas caen en cada categoría.
+    """
+    presentes = [col for col in columnas if col in df.columns]
+    proporcion = df[presentes].apply(pd.to_numeric, errors="coerce")
+    suma_fila = proporcion.sum(axis=1, min_count=1)
+    participacion = proporcion.div(suma_fila.where(suma_fila > 0), axis=0)
+    conteos = pd.to_numeric(df[total_col], errors="coerce")
+
+    filas = []
+    for col in presentes:
+        valor = (participacion[col] * conteos).sum(min_count=1)
+        filas.append({
+            "etiqueta": columnas[col],
+            "valor": None if pd.isna(valor) else _num(float(valor), 0),
+        })
+    declarado = sum(fila["valor"] or 0 for fila in filas)
+    for fila in filas:
+        fila["unidad"] = "bajas"
+        fila["pct"] = _pct(fila["valor"], declarado)
     filas.sort(key=lambda r: (r["valor"] is None, -(r["valor"] or 0)))
     return filas
 
@@ -337,9 +373,9 @@ def perfil(state, empresa: str | None = None, periodos: list[str] | None = None)
 
     # --- Rotación y bajas ---------------------------------------------------
     total_bajas = _sum(df["total_bajas"])
-    motivos = _desglose_sumas(df, MOTIVOS_BAJA, "total_bajas")
-    antiguedad = _desglose_sumas(df, ANTIGUEDAD_BAJAS, "total_bajas")
-    edades = _desglose_sumas(df, EDAD_BAJAS, "total_bajas")
+    motivos = _desglose_sumas(df, MOTIVOS_BAJA, "total_bajas", normalizar=True)
+    antiguedad = _desglose_proporciones(df, ANTIGUEDAD_BAJAS, "total_bajas")
+    edades = _desglose_proporciones(df, EDAD_BAJAS, "total_bajas")
     secciones.append({
         "titulo": "Rotación y bajas",
         "filas": [
