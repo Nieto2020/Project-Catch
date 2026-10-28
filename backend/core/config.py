@@ -26,10 +26,13 @@ DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 # Límite de la llamada al proveedor del chat (segundos).
 LLM_TIMEOUT_SEGUNDOS = float(os.getenv("LLM_TIMEOUT_SEGUNDOS", "60"))
 
-# --- CORS: el frontend Next.js corre en localhost:3000 ---
+# --- CORS: el frontend Next.js corre en localhost:3000 por defecto ---
+# demo.ps1 exporta CORS_ORIGINS con el puerto real cuando el 3000 esta ocupado.
+_DEFAULT_CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 CORS_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", _DEFAULT_CORS_ORIGINS).split(",")
+    if origin.strip()
 ]
 
 APP_NAME = "SCORE — Smart Catch Optimization & Retention Ecosystem"

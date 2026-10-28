@@ -40,6 +40,19 @@ y abre el navegador.
 .\demo.ps1
 ```
 
+El script cierra instancias previas del propio demo (evita el aviso
+`Port 3000 is in use, trying 3001 instead.`) y, si el puerto está ocupado por
+otro programa, arranca en el siguiente libre ajustando CORS y `NEXT_PUBLIC_API_URL`.
+
+Opciones útiles:
+
+```powershell
+.\demo.ps1 -NoBrowser          # no abre el navegador
+.\demo.ps1 -CheckPorts         # informa qué proceso ocupa 8000/3000
+.\demo.ps1 -FrontendPort 3010  # fuerza el puerto del frontend
+.\demo.ps1 -KeepExisting       # no detiene servidores previos
+```
+
 **Opción manual (dos terminales):**
 
 **Terminal 1 — Backend (FastAPI, puerto 8000):**
