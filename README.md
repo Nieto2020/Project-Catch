@@ -151,28 +151,23 @@ cohorte tiene **menos de 5 empresas** los reportes omiten los indicadores agrega
 ranking y las gráficas (se muestran como “dato insuficiente”), para evitar reidentificar a
 una empresa concreta. El reporte de una sola empresa sí muestra sus propios datos.
 
-### Condiciones laborales comparadas (fuera del índice)
+### Condiciones laborales (fuera del índice)
 
-Debajo del ranking, la vista incluye un comparador de variables **descriptivas** que
-**no ponderan** el Índice SCORE: sirven para revisar y comparar condiciones
-entre empresas y bimestres.
+Las variables **descriptivas** de condiciones de trabajo **no ponderan** el Índice SCORE,
+pero se siguen calculando y se usan en el **reporte detallado** de cada empresa:
 
 | Grupo | Variables | Unidad |
 |---|---|---|
 | Días y prestaciones | Días de descanso adicionales a los festivos de ley, vacaciones (1.er año), aguinaldo (1.er año), prima vacacional, vales de despensa, fondo de ahorro | días / % |
 | Descansos adicionales | Jueves y Viernes Santo, 10 de mayo, 15 de septiembre, 2 de noviembre, 12, 24 y 31 de diciembre, matrimonio, nacimiento y defunción | sí / no |
 
-Para cada variable se muestra:
+Las métricas siguen disponibles vía API, aunque **ya no se muestran en la vista del
+Barómetro Global**:
 
-- Mediana de la cohorte, rango P25–P75 y mínimo–máximo (o % de empresas que la otorgan).
-- Comparación empresa por empresa contra la **mediana de su propia talla**, con la
-  diferencia absoluta y el percentil dentro de su talla.
-- Evolución de la mediana (o del % de empresas) por bimestre y por talla.
-- El **score de cada empresa**, para contrastar sin confundir: las condiciones no suman
-  puntos al índice.
-
-Filtros: variable, bimestre (por defecto el último) y talla. Endpoint:
-`GET /api/barometro/comparables?variable=&periodo=&talla=`.
+- `GET /api/barometro/comparables?variable=&periodo=&talla=` devuelve la mediana de la
+  cohorte, rango P25–P75 y mínimo–máximo (o % de empresas que la otorgan), la comparación
+  empresa por empresa contra la mediana de su talla con su percentil, y la evolución por
+  bimestre y por talla.
 
 ## Reportes
 
