@@ -18,6 +18,9 @@ export default function Chat() {
   } = useAppStore();
   const [input, setInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  // Colapsadas por defecto: la conversación manda y el panel no empuja el
+  // formulario fuera de la vista; se despliegan con un clic.
+  const [sugerenciasAbiertas, setSugerenciasAbiertas] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -76,23 +79,61 @@ export default function Chat() {
       </div>
 
       {sugerencias.length > 0 && (
-        <div className="rounded-xl border border-brand-100 bg-white/70 px-4 py-3 shadow-soft backdrop-blur">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-            Respuestas rápidas · sin consumir el modelo
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {sugerencias.map((s) => (
-              <button
-                key={s.pregunta}
-                onClick={() => enviarRapida(s)}
-                disabled={chatLoading}
-                title={s.respuesta}
-                className="rounded-full border border-brand-200 bg-white px-4 py-1.5 text-sm text-brand-700 shadow-sm transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {s.pregunta}
-              </button>
-            ))}
-          </div>
+        <div className="rounded-xl border border-brand-100 bg-white/70 px-4 py-2 shadow-soft backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setSugerenciasAbiertas((abiertas) => !abiertas)}
+            aria-expanded={sugerenciasAbiertas}
+            aria-controls="respuestas-rapidas"
+            title={
+              sugerenciasAbiertas
+                ? "Ocultar las respuestas rápidas"
+                : "Mostrar las respuestas rápidas"
+            }
+            className="group flex w-full items-center gap-2 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 group-hover:text-brand-600 ${
+                sugerenciasAbiertas ? "rotate-180" : ""
+              }`}
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 transition group-hover:text-brand-700">
+              Respuestas rápidas
+            </span>
+            <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-brand-700 ring-1 ring-brand-100">
+              {sugerencias.length}
+            </span>
+            <span className="hidden text-[11px] text-slate-400 sm:inline">
+              sin consumir el modelo
+            </span>
+            <span className="ml-auto text-[11px] font-medium text-slate-400 transition group-hover:text-brand-600">
+              {sugerenciasAbiertas ? "Ocultar" : "Mostrar"}
+            </span>
+          </button>
+          {sugerenciasAbiertas && (
+            <div id="respuestas-rapidas" className="mt-2 flex flex-wrap gap-2">
+              {sugerencias.map((s) => (
+                <button
+                  key={s.pregunta}
+                  onClick={() => enviarRapida(s)}
+                  disabled={chatLoading}
+                  title={s.respuesta}
+                  className="rounded-full border border-brand-200 bg-white px-4 py-1.5 text-sm text-brand-700 shadow-sm transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {s.pregunta}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
