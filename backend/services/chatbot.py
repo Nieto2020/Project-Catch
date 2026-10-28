@@ -286,9 +286,9 @@ def _build_summary(state) -> str:
         f"matrimonio {pct_otorgan('descanso_matrimonio')}%, defunción {pct_otorgan('descanso_defuncion')}%",
         f"- Descansos adicionales por talla (mediana de días): {por_talla('dias_descanso_adicionales')}",
         f"- Aguinaldo por talla (mediana de días): {por_talla('aguinaldo_dias')}",
-        "- Nota: estas condiciones descriptivas NO ponderan el índice de competitividad.",
-        f"- Barómetro global: {gi['score']:.1f}/100",
-        "- Top 5 empresas por competitividad:",
+        "- Nota: estas condiciones descriptivas NO ponderan el Índice SCORE.",
+        f"- Índice SCORE global: {gi['score']:.1f}/100",
+        "- Top 5 empresas por Índice SCORE:",
         top_lineas,
     ]
     return "\n".join(lineas)
@@ -428,7 +428,7 @@ def _local_answer(state, question: str, scored: pd.DataFrame | None = None) -> s
     # Competitividad / top
     if re.search(r"top|mejores|competitiv", q):
         top = df.sort_values("score_competitividad", ascending=False).head(5)
-        lines = ["Top 5 por índice de competitividad:"]
+        lines = ["Top 5 por Índice SCORE:"]
         for _, r in top.iterrows():
             lines.append(
                 f"- {r['empresa']} ({r['periodo']}): score {r['score_competitividad']:.1f}/100, "

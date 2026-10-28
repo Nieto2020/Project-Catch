@@ -4,7 +4,7 @@
 A partir del diccionario de datos se agrupan las variables relevantes de la
 encuesta en secciones que una consultoría consideraría importantes (headcount
 y demografía, salarios, rotación y bajas, ausentismo, capacitación,
-prestaciones y competitividad). La misma estructura alimenta:
+prestaciones e Índice SCORE). La misma estructura alimenta:
 
 - El reporte detallado (HTML/PDF) con la referencia de la talla.
 - La ``ficha`` de texto que el chatbot adjunta automáticamente cuando el
@@ -438,9 +438,9 @@ def perfil(state, empresa: str | None = None, periodos: list[str] | None = None)
     # --- Competitividad -----------------------------------------------------
     score = _mean(df["score_competitividad"])
     secciones.append({
-        "titulo": "Competitividad (barómetro)",
+        "titulo": "Índice SCORE",
         "filas": [
-            _fila("Índice de competitividad", score, "num", "/100",
+            _fila("Índice SCORE", score, "num", "/100",
                   _bench(bench, "score_competitividad", talla)),
             _fila("Sub-indicador salario", _mean(df["sub_salario"]), "num", "/100",
                   _bench(bench, "sub_salario", talla)),

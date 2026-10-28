@@ -30,7 +30,7 @@ Puedo responder preguntas cuantitativas sobre la encuesta, por ejemplo:
 - "¿Cuántas empresas hay y cuál es el headcount promedio?"
 - "¿Cuál es la rotación bimestral promedio?"
 - "¿Cuál es el salario inicial promedio del personal operativo?"
-- "Top 5 empresas con mayor índice de competitividad"
+- "Top 5 empresas con mayor Índice SCORE"
 - "¿Cuál es el promedio de faltas por cada 100 empleados?"
 Escribe tu pregunta para consultar el modelo.
 """

@@ -187,6 +187,11 @@ export default function Reportes() {
               <Button variant="secondary" onClick={generar} className="w-full">
                 Ver reporte aquí
               </Button>
+              <p className="pt-1 text-[11px] leading-relaxed text-slate-400">
+                <span aria-hidden className="mr-1 text-emerald-600">🔒</span>
+                Datos seudonimizados · uso interno. En cohortes de menos de 5 empresas los
+                agregados y las gráficas se omiten.
+              </p>
             </div>
           </div>
         </Card>

@@ -6,7 +6,7 @@ Prototipo web de analítica de Recursos Humanos impulsada por IA, para el pitch 
 El proyecto se centra en **tres módulos**:
 
 1. **Chatbot** — asistente que responde preguntas cuantitativas sobre los datos (LangChain + LLM).
-2. **Barómetro global** — índice de competitividad 0-100 con métricas establecidas.
+2. **Barómetro global** — Índice SCORE 0-100 con métricas establecidas.
 3. **Reportes** — reporte ejecutivo HTML con gráficas, filtrable por empresa y bimestre.
 
 ## Requisitos
@@ -64,7 +64,7 @@ Abre **http://localhost:3000** en el navegador.
 
 | Vista | Ruta | Descripción |
 |---|---|---|
-| Barómetro Global | `/` | Índice global 0-100, desglose por dimensión, tendencia, ranking y comparador de condiciones laborales |
+| Barómetro Global | `/` | Índice SCORE 0-100, desglose por dimensión, tendencia, ranking, comparador de condiciones y simulador de pesos |
 | Asistente IA | `/chat` | Consultas en lenguaje natural sobre los datos |
 | Reportes | `/reportes` | Reporte ejecutivo con gráficas, filtrable por empresa y bimestre |
 
@@ -120,7 +120,7 @@ el botón **Quitar**.
 - `GET /api/chat/sugerencias` → `[{ pregunta, respuesta }]` (precalculadas).
 - `POST /api/chat` con `{ "pregunta": "...", "contexto": "..." }` → el LLM recibe el contexto.
 
-## Barómetro global
+## Barómetro global (Índice SCORE)
 
 Índice 0-100 construido con métricas establecidas y pesos:
 
@@ -132,12 +132,29 @@ el botón **Quitar**.
 | Capacitación | 15% | ≥ 4 horas / empleado |
 | Equilibrio de género | 10% | 50% mujeres |
 
-Además muestra la tendencia del índice por bimestre y el ranking de empresas.
+Además muestra la tendencia del índice por bimestre, el ranking de empresas y una lectura
+en texto del resultado (banda, referencia de la cohorte y mayor oportunidad de mejora).
+
+### Comparador “qué pasa si…”
+
+La vista incluye un simulador que recalcula el índice y **el ranking** con otros pesos por
+dimensión, para conversar con el cliente sobre qué priorizar. Los puntajes por dimensión no
+cambian: solo su importancia relativa. Mientras hay pesos personalizados, el ranking muestra
+un aviso y el botón **“Volver a los pesos base”**. Endpoint: `POST /api/barometro/escenario`
+con `{ "pesos": { "salario": 40, "retencion": 25, "ausentismo": 15, "capacitacion": 10, "equilibrio": 10 } }`;
+la respuesta incluye el índice resultante y el puntaje recalculado de cada empresa-bimestre.
+
+### Privacidad en los reportes
+
+Los datos del prototipo están **seudonimizados**. Como regla de agregación, cuando una
+cohorte tiene **menos de 5 empresas** los reportes omiten los indicadores agregados, el
+ranking y las gráficas (se muestran como “dato insuficiente”), para evitar reidentificar a
+una empresa concreta. El reporte de una sola empresa sí muestra sus propios datos.
 
 ### Condiciones laborales comparadas (fuera del índice)
 
 Debajo del ranking, la vista incluye un comparador de variables **descriptivas** que
-**no ponderan** el índice de competitividad: sirven para revisar y comparar condiciones
+**no ponderan** el Índice SCORE: sirven para revisar y comparar condiciones
 entre empresas y bimestres.
 
 | Grupo | Variables | Unidad |

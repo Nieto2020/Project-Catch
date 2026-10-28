@@ -36,6 +36,15 @@ _TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "executivo.html"
 _TEMPLATE_DETALLE = Path(__file__).resolve().parents[1] / "templates" / "detallado.html"
 
 SALARY_COLS = ["salario_inicial", "salario_inter_bajo", "salario_inter_alto", "salario_maximo"]
+
+# Regla de privacidad: los agregados de cohorte solo se muestran con al menos
+# 5 empresas, para que ninguna cifra permita reidentificar a una sola.
+UMBRAL_PRIVACIDAD = 5
+TEXTO_INSUFICIENTE = "Dato insuficiente (< 5 empresas)"
+TEXTO_AVISO_GRAFICAS = (
+    f"Gráficas omitidas: la selección tiene menos de {UMBRAL_PRIVACIDAD} empresas. "
+    "Amplía el filtro para ver el análisis agregado."
+)
 MOTIVOS_BAJA = {
     "bajas_renuncia_voluntaria": "Renuncia voluntaria",
     "bajas_abandono": "Abandono de trabajo",
@@ -104,8 +113,25 @@ ACCIONES = {
 }
 
 
+def _privacidad_ok(df: pd.DataFrame, empresa: str | None) -> bool:
+    """El reporte de una empresa muestra sus propios datos; la cohorte exige n>=5."""
+    if empresa:
+        return True
+    return int(df["empresa"].nunique()) >= UMBRAL_PRIVACIDAD
+
+
 def resumen_ejecutivo(df: pd.DataFrame, empresa: str | None) -> list[tuple[str, str]]:
     """Tres viñetas para leer el reporte sin interpretar las gráficas."""
+    if not _privacidad_ok(df, empresa):
+        return [
+            (
+                "Aviso de privacidad",
+                f"La selección incluye menos de {UMBRAL_PRIVACIDAD} empresas, así que los "
+                "agregados se omiten para evitar reidentificar a una empresa concreta. "
+                "Amplía el filtro de bimestres o elige todas las empresas.",
+            )
+        ]
+
     gi = global_index(df)
     dims = gi["dimensiones"]
     mejor = max(dims, key=lambda d: d["score"])
@@ -338,14 +364,19 @@ def kpi_rows(df: pd.DataFrame, empresa: str | None) -> list[tuple[str, str]]:
             ("Empresas incluidas", str(df["empresa"].nunique())),
             ("Bimestres analizados", str(df["periodo"].nunique())),
         ]
+
+    # Con menos de 5 empresas los agregados se enmascaran (riesgo de reidentificación).
+    ok = _privacidad_ok(df, empresa)
+    seguro = (lambda texto: texto) if ok else (lambda _texto: TEXTO_INSUFICIENTE)
+
     rows += [
-        ("Headcount total", _fmt_int(df["total_headcount"].sum())),
-        ("Headcount mediano", _fmt_int(_med(df["total_headcount"]))),
-        ("Salario medio operativo (mediana)", _money(_med(df["salario_medio"]))),
-        ("Rotación bimestral (promedio)", f"{_fmt(_mean(df['tasa_bajas_bimestral_pct']))}%"),
-        ("Faltas por cada 100 empleados (mediana)", _fmt(_med(df["faltas_por_100"]), 1)),
-        ("Horas de capacitación (mediana)", _fmt_int(_med(df["hrs_cap_operativos"].fillna(0) + df["hrs_cap_administrativos"].fillna(0)))),
-        ("Mujeres en plantilla (mediana)", f"{_fmt(_med(df['pct_mujeres']), 1)}%"),
+        ("Headcount total", seguro(_fmt_int(df["total_headcount"].sum()))),
+        ("Headcount mediano", seguro(_fmt_int(_med(df["total_headcount"])))),
+        ("Salario medio operativo (mediana)", seguro(_money(_med(df["salario_medio"])))),
+        ("Rotación bimestral (promedio)", seguro(f"{_fmt(_mean(df['tasa_bajas_bimestral_pct']))}%")),
+        ("Faltas por cada 100 empleados (mediana)", seguro(_fmt(_med(df["faltas_por_100"]), 1))),
+        ("Horas de capacitación (mediana)", seguro(_fmt_int(_med(df["hrs_cap_operativos"].fillna(0) + df["hrs_cap_administrativos"].fillna(0))))),
+        ("Mujeres en plantilla (mediana)", seguro(f"{_fmt(_med(df['pct_mujeres']), 1)}%")),
     ]
     return rows
 
@@ -374,7 +405,7 @@ def table_html(df: pd.DataFrame, empresa: str | None) -> tuple[str, str, str]:
         head = "".join(
             f"<th style='text-align:right'>{h}</th>" if h not in ("Bimestre",)
             else f"<th>{h}</th>"
-            for h in ["Bimestre", "Talla", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Score"]
+            for h in ["Bimestre", "Talla", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Índice SCORE"]
         )
         scored = add_scores(df)
         rows = ""
@@ -393,8 +424,13 @@ def table_html(df: pd.DataFrame, empresa: str | None) -> tuple[str, str, str]:
         head = "".join(
             f"<th style='text-align:right'>{h}</th>" if h not in ("Empresa", "Talla")
             else f"<th>{h}</th>"
-            for h in ["Empresa", "Talla", "Periodo", "Score", "Salario medio", "Rotación", "Headcount"]
+            for h in ["Empresa", "Talla", "Bimestre", "Índice SCORE", "Salario medio", "Rotación", "Headcount"]
         )
+        if not _privacidad_ok(df, empresa):
+            return titulo, head, (
+                f"<tr><td colspan='7'>{TEXTO_INSUFICIENTE}: el ranking identifica empresas "
+                "y la selección tiene menos de 5.</td></tr>"
+            )
         ranking = _ranking_scored(add_scores(df))
         rows = ""
         for _, r in ranking.iterrows():
@@ -436,7 +472,12 @@ def build_html(state, empresa: str | None = None, periodos: list[str] | None = N
         .replace("{{FILTROS}}", pills)
         .replace("{{RESUMEN}}", _resumen_html(resumen_ejecutivo(df, empresa)))
         .replace("{{KPI_ROWS}}", kpi_html)
-        .replace("{{CHARTS}}", _charts_html(df, empresa))
+        .replace(
+            "{{CHARTS}}",
+            _charts_html(df, empresa)
+            if _privacidad_ok(df, empresa)
+            else f"<p class='aviso'>{TEXTO_AVISO_GRAFICAS}</p>",
+        )
         .replace("{{TABLA_TITULO}}", tabla_titulo)
         .replace("{{TABLA_HEAD}}", tabla_head)
         .replace("{{TABLA_ROWS}}", tabla_rows)
@@ -447,7 +488,7 @@ def _pdf_table_data(df: pd.DataFrame, empresa: str | None) -> tuple[str, list[st
     """Tabla del reporte en formato (título, encabezados, filas) para el PDF."""
     if empresa:
         titulo = f"Desglose por bimestre — {empresa}"
-        headers = ["Bimestre", "Talla", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Score"]
+        headers = ["Bimestre", "Talla", "Headcount", "Salario medio", "Rotación", "Faltas/100", "Índice SCORE"]
         scored = add_scores(df).sort_values("periodo_num")
         rows = [
             [
@@ -459,7 +500,9 @@ def _pdf_table_data(df: pd.DataFrame, empresa: str | None) -> tuple[str, list[st
         ]
     else:
         titulo = "Ranking por talla (top 3 de cada talla)"
-        headers = ["Empresa", "Talla", "Periodo", "Score", "Salario medio", "Rotación", "Headcount"]
+        headers = ["Empresa", "Talla", "Bimestre", "Índice SCORE", "Salario medio", "Rotación", "Headcount"]
+        if not _privacidad_ok(df, empresa):
+            return titulo, headers, [[TEXTO_INSUFICIENTE, "", "", "", "", "", ""]]
         ranking = _ranking_scored(add_scores(df))
         rows = [
             [
@@ -517,6 +560,7 @@ def build_pdf(state, empresa: str | None = None, periodos: list[str] | None = No
             [Paragraph(config.APP_NAME, h1)],
             [Paragraph(f"{subtitulo} · {fecha}", sub)],
             [Paragraph(f"Filtros: {filtros} · {len(df)} registros", sub)],
+            [Paragraph("Datos seudonimizados · uso interno de la consultoría", sub)],
         ],
         colWidths=[178 * mm],
     )
@@ -555,24 +599,28 @@ def build_pdf(state, empresa: str | None = None, periodos: list[str] | None = No
 
     # Gráficas (2x2).
     story.append(Paragraph("Gráficas del análisis", h2))
-    img_w = 86 * mm
-    img_h = img_w / (7.0 / 3.9)
-    images = [Image(io.BytesIO(data), width=img_w, height=img_h) for _, data in _charts_bytes(df, empresa)]
-    cells = []
-    for i in range(0, len(images), 2):
-        row = images[i:i + 2]
-        while len(row) < 2:
-            row.append("")
-        cells.append(row)
-    chart_table = Table(cells, colWidths=[img_w, img_w])
-    chart_table.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.append(chart_table)
-    story.append(Spacer(1, 4 * mm))
+    if not _privacidad_ok(df, empresa):
+        story.append(Paragraph(TEXTO_AVISO_GRAFICAS, cell))
+        story.append(Spacer(1, 5 * mm))
+    else:
+        img_w = 86 * mm
+        img_h = img_w / (7.0 / 3.9)
+        images = [Image(io.BytesIO(data), width=img_w, height=img_h) for _, data in _charts_bytes(df, empresa)]
+        cells = []
+        for i in range(0, len(images), 2):
+            row = images[i:i + 2]
+            while len(row) < 2:
+                row.append("")
+            cells.append(row)
+        chart_table = Table(cells, colWidths=[img_w, img_w])
+        chart_table.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(chart_table)
+        story.append(Spacer(1, 4 * mm))
 
     # Tabla de detalle.
     t_titulo, t_headers, t_rows = _pdf_table_data(df, empresa)
@@ -716,7 +764,12 @@ def build_detalle_html(state, empresa: str | None = None, periodos: list[str] | 
         .replace("{{FILTROS}}", pills)
         .replace("{{RESUMEN}}", _resumen_html(resumen_ejecutivo(df, empresa)))
         .replace("{{KPI_ROWS}}", kpi_html)
-        .replace("{{CHARTS}}", _charts_detalle_html(df, empresa))
+        .replace(
+            "{{CHARTS}}",
+            _charts_detalle_html(df, empresa)
+            if _privacidad_ok(df, empresa)
+            else f"<p class='aviso'>{TEXTO_AVISO_GRAFICAS}</p>",
+        )
         .replace("{{SECCIONES}}", _secciones_html(p))
     )
 
@@ -778,6 +831,7 @@ def build_detalle_pdf(state, empresa: str | None = None, periodos: list[str] | N
             [Paragraph(config.APP_NAME, h1)],
             [Paragraph(f"{subtitulo} · {fecha}", sub)],
             [Paragraph(f"Filtros: {filtros} · {p['registros']} registros · Talla: {p['talla']}", sub)],
+            [Paragraph("Datos seudonimizados · uso interno de la consultoría", sub)],
         ],
         colWidths=[178 * mm],
     )
@@ -816,25 +870,29 @@ def build_detalle_pdf(state, empresa: str | None = None, periodos: list[str] | N
 
     # Gráficas (2 columnas).
     story.append(Paragraph("Gráficas del análisis", h2))
-    img_w = 86 * mm
-    img_h = img_w / (7.0 / 3.9)
-    images = [Image(io.BytesIO(data), width=img_w, height=img_h)
-              for _, data in [(t, _png_bytes(f)) for t, f in _chart_items_detalle(df, empresa)]]
-    cells = []
-    for i in range(0, len(images), 2):
-        row = images[i:i + 2]
-        while len(row) < 2:
-            row.append("")
-        cells.append(row)
-    chart_table = Table(cells, colWidths=[img_w, img_w])
-    chart_table.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.append(chart_table)
-    story.append(Spacer(1, 4 * mm))
+    if not _privacidad_ok(df, empresa):
+        story.append(Paragraph(TEXTO_AVISO_GRAFICAS, cell))
+        story.append(Spacer(1, 5 * mm))
+    else:
+        img_w = 86 * mm
+        img_h = img_w / (7.0 / 3.9)
+        images = [Image(io.BytesIO(data), width=img_w, height=img_h)
+                  for _, data in [(t, _png_bytes(f)) for t, f in _chart_items_detalle(df, empresa)]]
+        cells = []
+        for i in range(0, len(images), 2):
+            row = images[i:i + 2]
+            while len(row) < 2:
+                row.append("")
+            cells.append(row)
+        chart_table = Table(cells, colWidths=[img_w, img_w])
+        chart_table.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(chart_table)
+        story.append(Spacer(1, 4 * mm))
 
     # Ficha detallada por secciones.
     for sec in p["secciones"]:

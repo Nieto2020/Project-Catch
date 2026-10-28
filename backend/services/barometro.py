@@ -99,6 +99,8 @@ def global_index(df: pd.DataFrame) -> dict:
             "unidad": cfg["unidad"],
             "valor_actual": _f(valores[key], 2),
             "score": round(s, 1),
+            # Sin redondear: permite recalcular el índice con otros pesos.
+            "score_exacto": float(s),
         })
 
     return {
@@ -119,12 +121,14 @@ def talla_of(headcount) -> str:
     return "Grande"
 
 
-def add_scores(df: pd.DataFrame) -> pd.DataFrame:
+def add_scores(df: pd.DataFrame, weights: dict[str, float] | None = None) -> pd.DataFrame:
     """Añade `talla`, `score_competitividad` y sub-indicadores al DataFrame.
 
     Los sub-indicadores se calculan por percentil DENTRO de cada talla
-    (comparación entre pares de tamaño similar).
+    (comparación entre pares de tamaño similar). `weights` permite recalcular
+    el índice con otra ponderación sin tocar el dataset.
     """
+    pesos = weights or WEIGHTS
     out = df.copy()
 
     # Valores neutrales (mediana / 50%) para no perder el score ante nulos.
@@ -144,7 +148,7 @@ def add_scores(df: pd.DataFrame) -> pd.DataFrame:
     out["sub_equilibrio"] = (100 - (out["pct_mujeres"] - 50).abs() * 2).clip(lower=0, upper=100)
 
     out["score_competitividad"] = sum(
-        out[col] * w for col, w in WEIGHTS.items()
+        out[col] * w for col, w in pesos.items()
     ).round(1)
     return out
 
@@ -244,8 +248,67 @@ def summary(df: pd.DataFrame) -> dict:
             "retencion": 0.30,
             "ausentismo": 0.15,
             "capacitacion": 0.15,
-            "equilibrio_genero": 0.10,
+            "equilibrio": 0.10,
         },
+    })
+
+
+def escenario(df: pd.DataFrame, pesos: dict[str, float] | None = None) -> dict:
+    """Recalcula el índice con otra ponderación (comparador "qué pasa si…").
+
+    Los scores de cada dimensión son fijos (métrica vs meta); lo que cambia es
+    cuánto pesa cada una en el índice final. Sirve para mostrar en vivo cómo se
+    mueve el resultado al priorizar distintas dimensiones.
+    """
+    limpios = {clave: max(0.0, float((pesos or {}).get(clave) or 0.0)) for clave in DIM_LABELS}
+    total = sum(limpios.values())
+    if total <= 0:
+        limpios = {clave: WEIGHTS[f"sub_{clave}"] for clave in DIM_LABELS}
+        total = sum(limpios.values())
+    norm = {clave: valor / total for clave, valor in limpios.items()}
+
+    gi = global_index(df)
+    base = float(gi["score"])
+    score = sum(d["score_exacto"] * norm[d["clave"]] for d in gi["dimensiones"])
+    scored = add_scores(df, weights={f"sub_{clave}": valor for clave, valor in norm.items()})
+    col = scored["score_competitividad"]
+
+    # Puntaje por empresa-bimestre con estos pesos, para poder reordenar el ranking.
+    scored["mediana_talla"] = scored.groupby(["talla", "periodo"])["score_competitividad"].transform("median")
+    scored["delta_talla"] = scored["score_competitividad"] - scored["mediana_talla"]
+    empresas = [
+        {
+            "empresa": r["empresa"],
+            "periodo": r["periodo"],
+            "talla": r["talla"],
+            "score_competitividad": _f(r["score_competitividad"], 1),
+            "mediana_talla": _f(r["mediana_talla"], 1),
+            "delta_talla": _f(r["delta_talla"], 1),
+        }
+        for _, r in scored.iterrows()
+    ]
+
+    return jsonable({
+        "score": round(score, 1),
+        "base": round(base, 1),
+        "delta": round(score - base, 1),
+        "banda": banda_de(score),
+        "pesos": {clave: round(valor * 100, 1) for clave, valor in norm.items()},
+        "dimensiones": [
+            {
+                "clave": d["clave"],
+                "etiqueta": DIM_LABELS.get(d["clave"], d["clave"]),
+                "score": d["score"],
+                "peso": round(norm[d["clave"]] * 100, 1),
+            }
+            for d in gi["dimensiones"]
+        ],
+        "distribucion": {
+            "min": _f(col.min(), 1),
+            "mediana": _f(col.median(), 1),
+            "max": _f(col.max(), 1),
+        },
+        "empresas": empresas,
     })
 
 

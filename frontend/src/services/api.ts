@@ -5,6 +5,7 @@ import type {
   ChatSugerencia,
   ComparativaDescriptiva,
   EmpresaScore,
+  EscenarioIndice,
   Kpis,
 } from "./types";
 
@@ -80,6 +81,13 @@ export async function getChatSugerencias(): Promise<ChatSugerencia[]> {
     "/api/chat/sugerencias",
   );
   return data.sugerencias;
+}
+
+export async function postEscenario(
+  pesos: Record<string, number>,
+): Promise<EscenarioIndice> {
+  const { data } = await api.post<EscenarioIndice>("/api/barometro/escenario", { pesos });
+  return data;
 }
 
 export interface ReportOpciones {

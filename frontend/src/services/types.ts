@@ -46,6 +46,35 @@ export interface LecturaBarometro {
   dimension_fuerte: string;
 }
 
+export interface EscenarioDimension {
+  clave: string;
+  etiqueta: string;
+  score: number;
+  peso: number;
+}
+
+/** Puntaje recalculado de una empresa-bimestre con los pesos del escenario. */
+export interface EscenarioEmpresa {
+  empresa: string;
+  periodo: string;
+  talla: string;
+  score_competitividad: number;
+  mediana_talla: number | null;
+  delta_talla: number | null;
+}
+
+/** Resultado del comparador "qué pasa si…": índice recalculado con otros pesos. */
+export interface EscenarioIndice {
+  score: number;
+  base: number;
+  delta: number;
+  banda: string;
+  pesos: Record<string, number>;
+  dimensiones: EscenarioDimension[];
+  distribucion: { min: number; mediana: number; max: number };
+  empresas: EscenarioEmpresa[];
+}
+
 export interface BarometroResumen {
   global: GlobalIndex;
   lectura: LecturaBarometro;
@@ -72,7 +101,7 @@ export interface EmpresaScore {
   salario_medio: number;
   rotacion_bimestral_pct: number;
   headcount: number;
-  /** Condiciones descriptivas: no ponderan el índice de competitividad. */
+  /** Condiciones descriptivas: no ponderan el Índice SCORE. */
   dias_descanso_adicionales: number | null;
   vacaciones_dias: number | null;
   aguinaldo_dias: number | null;

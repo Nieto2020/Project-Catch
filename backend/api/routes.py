@@ -26,6 +26,12 @@ class ChatRequest(BaseModel):
     contexto: str | None = None
 
 
+class EscenarioRequest(BaseModel):
+    """Pesos (0-100) por dimensión para el comparador "qué pasa si…"."""
+
+    pesos: dict[str, float] = {}
+
+
 def _state(request: Request):
     return request.app.state.state
 
@@ -40,6 +46,7 @@ def root():
             "/api/kpis",
             "/api/barometro",
             "/api/barometro/comparables",
+            "/api/barometro/escenario (POST)",
             "/api/empresas",
             "/api/periodos",
             "/api/chat (POST)",
@@ -98,6 +105,13 @@ def get_comparables(
     """Variables descriptivas (descansos, vacaciones, prestaciones) fuera del índice."""
     state = _state(request)
     return descriptivo.comparativa(state.kpis, variable=variable, periodo=periodo, talla=talla)
+
+
+@router.post("/api/barometro/escenario")
+def post_escenario(payload: EscenarioRequest, request: Request):
+    """Recalcula el índice con otros pesos: comparador "qué pasa si…"."""
+    state = _state(request)
+    return barometro.escenario(state.kpis, payload.pesos)
 
 
 @router.get("/api/chat/estado")

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Variables descriptivas del dataset que NO ponderan el índice de competitividad.
+"""Variables descriptivas del dataset que NO ponderan el Índice SCORE.
 
 Permiten comparar condiciones laborales (descansos adicionales, vacaciones,
 aguinaldo y prestaciones) entre empresas y bimestres sin alterar el score

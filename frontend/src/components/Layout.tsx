@@ -66,6 +66,9 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="rounded-xl bg-gradient-to-br from-brand-50 to-white px-4 py-3 ring-1 ring-brand-100">
             <p className="text-xs font-semibold text-brand-800">Catch Consulting</p>
             <p className="mt-0.5 text-[11px] text-slate-400">Prototipo para pitch · Datatón</p>
+            <p className="mt-2 flex items-center gap-1 text-[10px] font-medium text-emerald-700">
+              <span aria-hidden>🔒</span> Datos seudonimizados · uso interno
+            </p>
           </div>
         </div>
       </aside>
